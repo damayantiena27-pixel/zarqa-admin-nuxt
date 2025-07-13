@@ -1,4 +1,635 @@
-Expenses:
+financeDashboard:
+<template>
+  <div class="container mx-auto px-4 min-w-full">
+    <!-- Header -->
+    <HeadersContent
+      title="Finance Dashboard"
+      description="Monitor your business financial performance"
+    />
+
+    <!-- Alert Messages -->
+    <Alert
+      v-if="message"
+      :class="messageType === 'error' ? 'border-red-500' : 'border-green-500'"
+      class="mb-6"
+    >
+      <AlertDescription>{{ message }}</AlertDescription>
+    </Alert>
+
+    <!-- Date Range Selector -->
+    <div class="flex justify-between items-center mb-6">
+      <div class="flex items-center space-x-4">
+        <Select
+          v-model="selectedPeriod"
+          @update:model-value="loadFinancialData"
+        >
+          <SelectTrigger class="w-48">
+            <SelectValue placeholder="Select period" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="today">Today</SelectItem>
+            <SelectItem value="week">This Week</SelectItem>
+            <SelectItem value="month">This Month</SelectItem>
+            <SelectItem value="quarter">This Quarter</SelectItem>
+            <SelectItem value="year">This Year</SelectItem>
+            <SelectItem value="custom">Custom Range</SelectItem>
+          </SelectContent>
+        </Select>
+
+        <div
+          v-if="selectedPeriod === 'custom'"
+          class="flex items-center space-x-2"
+        >
+          <Input
+            type="date"
+            v-model="customDateRange.start"
+            class="w-40"
+            @change="loadFinancialData"
+          />
+          <span>to</span>
+          <Input
+            type="date"
+            v-model="customDateRange.end"
+            class="w-40"
+            @change="loadFinancialData"
+          />
+        </div>
+      </div>
+
+      <div class="flex space-x-2">
+        <Button variant="outline" @click="exportData">
+          <Download class="mr-2 h-4 w-4" />
+          Export
+        </Button>
+        <Button @click="refreshData">
+          <RefreshCw class="mr-2 h-4 w-4" />
+          Refresh
+        </Button>
+      </div>
+    </div>
+
+    <!-- Financial Overview Cards -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+      <!-- Total Revenue -->
+      <Card>
+        <CardHeader
+          class="flex flex-row items-center justify-between space-y-0"
+        >
+          <CardTitle class="text-sm font-medium">Total Revenue</CardTitle>
+          <TrendingUp class="text-green-500" />
+        </CardHeader>
+        <CardContent>
+          <div class="text-xl font-bold text-green-600">
+            Rp {{ formatPrice(financialData.totalRevenue) }}
+          </div>
+          <p class="text-xs text-muted-foreground">
+            <span
+              :class="
+                financialData.revenueGrowth >= 0
+                  ? 'text-green-600'
+                  : 'text-red-600'
+              "
+            >
+              {{ financialData.revenueGrowth >= 0 ? "+" : ""
+              }}{{ financialData.revenueGrowth.toFixed(1) }}%
+            </span>
+            from last period
+          </p>
+        </CardContent>
+      </Card>
+
+      <!-- Total Expenses -->
+      <Card>
+        <CardHeader
+          class="flex flex-row items-center justify-between space-y-0"
+        >
+          <CardTitle class="text-sm font-medium">Total Expenses</CardTitle>
+          <TrendingDown class="text-red-500" />
+        </CardHeader>
+        <CardContent>
+          <div class="text-xl font-bold text-red-600">
+            Rp {{ formatPrice(financialData.totalExpenses) }}
+          </div>
+          <p class="text-xs text-muted-foreground">
+            <span
+              :class="
+                financialData.expenseGrowth <= 0
+                  ? 'text-green-600'
+                  : 'text-red-600'
+              "
+            >
+              {{ financialData.expenseGrowth >= 0 ? "+" : ""
+              }}{{ financialData.expenseGrowth.toFixed(1) }}%
+            </span>
+            from last period
+          </p>
+        </CardContent>
+      </Card>
+
+      <!-- Net Profit -->
+      <Card>
+        <CardHeader
+          class="flex flex-row items-center justify-between space-y-0"
+        >
+          <CardTitle class="text-sm font-medium">Net Profit</CardTitle>
+          <DollarSign />
+        </CardHeader>
+        <CardContent>
+          <div
+            class="text-xl font-bold"
+            :class="
+              financialData.netProfit >= 0 ? 'text-green-600' : 'text-red-600'
+            "
+          >
+            Rp {{ formatPrice(financialData.netProfit) }}
+          </div>
+          <p class="text-xs text-muted-foreground">
+            {{
+              financialData.totalRevenue > 0
+                ? (
+                    (financialData.netProfit / financialData.totalRevenue) *
+                    100
+                  ).toFixed(1)
+                : 0
+            }}% profit margin
+          </p>
+        </CardContent>
+      </Card>
+
+      <!-- Cash Flow -->
+      <Card>
+        <CardHeader
+          class="flex flex-row items-center justify-between space-y-0"
+        >
+          <CardTitle class="text-sm font-medium">Cash Flow</CardTitle>
+          <Wallet />
+        </CardHeader>
+        <CardContent>
+          <div
+            class="text-xl font-bold"
+            :class="
+              financialData.cashFlow >= 0 ? 'text-green-600' : 'text-red-600'
+            "
+          >
+            Rp {{ formatPrice(financialData.cashFlow) }}
+          </div>
+          <p class="text-xs text-muted-foreground">Current cash position</p>
+        </CardContent>
+      </Card>
+    </div>
+
+    <!-- Charts Section -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+      <!-- Revenue vs Expenses Chart -->
+      <Card>
+        <CardHeader>
+          <CardTitle>Revenue vs Expenses</CardTitle>
+          <CardDescription>Monthly comparison</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div class="h-80">
+            <OverviewChart :data="chartData" />
+          </div>
+        </CardContent>
+      </Card>
+
+      <!-- Expense Categories -->
+      <Card>
+        <CardHeader>
+          <CardTitle>Expense Categories</CardTitle>
+          <CardDescription>Breakdown by category</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div class="space-y-4">
+            <div
+              v-for="category in expenseCategories"
+              :key="category.name"
+              class="flex items-center justify-between"
+            >
+              <div class="flex items-center space-x-3">
+                <div
+                  class="w-4 h-4 rounded"
+                  :style="{ backgroundColor: category.color }"
+                ></div>
+                <span class="text-sm font-medium">{{ category.name }}</span>
+              </div>
+              <div class="text-right">
+                <div class="text-sm font-bold">
+                  Rp {{ formatPrice(category.amount) }}
+                </div>
+                <div class="text-xs text-muted-foreground">
+                  {{ category.percentage.toFixed(1) }}%
+                </div>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+
+    <!-- Recent Transactions -->
+    <Card class="mb-4">
+      <CardHeader class="flex flex-row items-center justify-between">
+        <div>
+          <CardTitle>Recent Transactions</CardTitle>
+          <CardDescription>Latest financial activities</CardDescription>
+        </div>
+        <Button variant="outline" @click="$router.push('/admin/transaction')">
+          View All
+          <ArrowRight class="ml-2 h-4 w-4" />
+        </Button>
+      </CardHeader>
+      <CardContent>
+        <div v-if="loadingTransactions" class="text-center py-8">
+          <div
+            class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"
+          ></div>
+          <p class="mt-2 text-sm text-muted-foreground">
+            Loading transactions...
+          </p>
+        </div>
+        <div v-else class="space-y-4">
+          <div
+            v-for="transaction in recentTransactions"
+            :key="transaction.id"
+            class="flex items-center justify-between p-4 border rounded-lg"
+          >
+            <div class="flex items-center space-x-4">
+              <div
+                class="p-2 rounded-full"
+                :class="
+                  transaction.type === 'income' ? 'bg-green-100' : 'bg-red-100'
+                "
+              >
+                <component
+                  :is="getTransactionIcon(transaction.category)"
+                  :class="
+                    transaction.type === 'income'
+                      ? 'text-green-600'
+                      : 'text-red-600'
+                  "
+                  class="h-4 w-4"
+                />
+              </div>
+              <div>
+                <div class="font-medium">{{ transaction.description }}</div>
+                <div class="text-sm text-muted-foreground">
+                  {{ getCategoryLabel(transaction.category) }} •
+                  {{ formatDate(transaction.date) }}
+                </div>
+              </div>
+            </div>
+            <div class="text-right">
+              <div
+                class="font-bold"
+                :class="
+                  transaction.type === 'income'
+                    ? 'text-green-600'
+                    : 'text-red-600'
+                "
+              >
+                {{ transaction.type === "income" ? "+" : "-" }}Rp
+                {{ formatPrice(transaction.amount) }}
+              </div>
+              <Badge
+                :variant="
+                  transaction.status === 'completed' ? 'default' : 'secondary'
+                "
+              >
+                {{ transaction.status }}
+              </Badge>
+            </div>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  </div>
+</template>
+
+<script setup>
+import { ref, reactive, onMounted, computed } from "vue";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
+import {
+  TrendingUp,
+  TrendingDown,
+  DollarSign,
+  Wallet,
+  Download,
+  RefreshCw,
+  BarChart3,
+  ArrowRight,
+  ShoppingCart,
+  Truck,
+  Users,
+  Settings,
+  CreditCard,
+  Smartphone,
+  Zap,
+  Car,
+  FileText,
+} from "lucide-vue-next";
+import HeadersContent from "~/components/ui/HeadersContent.vue";
+import {
+  collection,
+  getDocs,
+  query,
+  where,
+  orderBy,
+  limit,
+} from "firebase/firestore";
+import OverviewChart from "@/components/chart/OverviewChart.vue";
+
+// Data untuk chart
+const chartData = {
+  labels: [
+    "Jan",
+    "Feb",
+    "Mar",
+    "Apr",
+    "May",
+    "Jun",
+    "Jul",
+    "Aug",
+    "Sep",
+    "Oct",
+    "Nov",
+    "Dec",
+  ],
+  datasets: [
+    {
+      data: [
+        5500, 4000, 2000, 2400, 3900, 1900, 3100, 2300, 4400, 3600, 5400, 4500,
+      ],
+      backgroundColor: "#FF4F0F",
+      borderRadius: 4,
+      borderSkipped: false,
+    },
+  ],
+};
+
+definePageMeta({
+  middleware: "auth",
+});
+
+// State
+const selectedPeriod = ref("month");
+const customDateRange = reactive({
+  start: "",
+  end: "",
+});
+const message = ref("");
+const messageType = ref("");
+const loadingTransactions = ref(false);
+
+const financialData = reactive({
+  totalRevenue: 0,
+  totalExpenses: 0,
+  netProfit: 0,
+  cashFlow: 0,
+  revenueGrowth: 0,
+  expenseGrowth: 0,
+});
+
+const expenseCategories = ref([]);
+const recentTransactions = ref([]);
+
+// Helper function to get date range based on selected period
+const getDateRange = () => {
+  const now = new Date();
+  let startDate, endDate;
+
+  switch (selectedPeriod.value) {
+    case "today":
+      startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      endDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+      break;
+    case "week":
+      const weekStart = new Date(now);
+      weekStart.setDate(now.getDate() - now.getDay());
+      startDate = new Date(
+        weekStart.getFullYear(),
+        weekStart.getMonth(),
+        weekStart.getDate()
+      );
+      endDate = new Date(
+        weekStart.getFullYear(),
+        weekStart.getMonth(),
+        weekStart.getDate() + 7
+      );
+      break;
+    case "month":
+      startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+      endDate = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+      break;
+    case "quarter":
+      const quarterStart = Math.floor(now.getMonth() / 3) * 3;
+      startDate = new Date(now.getFullYear(), quarterStart, 1);
+      endDate = new Date(now.getFullYear(), quarterStart + 3, 1);
+      break;
+    case "year":
+      startDate = new Date(now.getFullYear(), 0, 1);
+      endDate = new Date(now.getFullYear() + 1, 0, 1);
+      break;
+    case "custom":
+      if (customDateRange.start && customDateRange.end) {
+        startDate = new Date(customDateRange.start);
+        endDate = new Date(customDateRange.end);
+        endDate.setDate(endDate.getDate() + 1); // Include end date
+      } else {
+        // Default to current month if custom dates not set
+        startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+        endDate = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+      }
+      break;
+    default:
+      startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+      endDate = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+  }
+
+  return { startDate, endDate };
+};
+
+// Function to fetch financial data from Firestore
+const loadFinancialData = async () => {
+  try {
+    const { $firebase } = useNuxtApp();
+    const { startDate, endDate } = getDateRange();
+
+    // Fetch transactions within date range
+    const transactionsQuery = query(
+      collection($firebase.firestore, "transactions"),
+      where("date", ">=", startDate),
+      where("date", "<", endDate),
+      orderBy("date", "desc")
+    );
+
+    const transactionsSnapshot = await getDocs(transactionsQuery);
+    const transactions = transactionsSnapshot.docs.map((doc) => {
+      const data = doc.data();
+      return {
+        id: doc.id,
+        ...data,
+        date: data.date?.toDate ? data.date.toDate() : new Date(data.date),
+      };
+    });
+
+    // Calculate revenue (only sales income)
+    const revenue = transactions
+      .filter((t) => t.type === "income" && t.category === "sales")
+      .reduce((sum, t) => sum + t.amount, 0);
+
+    // Calculate total expenses (all expense transactions)
+    const expenses = transactions
+      .filter((t) => t.type === "expense")
+      .reduce((sum, t) => sum + t.amount, 0);
+
+    // Calculate net profit
+    const netProfit = revenue - expenses;
+
+    // Calculate cash flow (all income - all expenses)
+    const totalIncome = transactions
+      .filter((t) => t.type === "income")
+      .reduce((sum, t) => sum + t.amount, 0);
+    const totalExpenses = transactions
+      .filter((t) => t.type === "expense")
+      .reduce((sum, t) => sum + t.amount, 0);
+    const cashFlow = totalIncome - totalExpenses;
+
+    // Update financial data
+    Object.assign(financialData, {
+      totalRevenue: revenue,
+      totalExpenses: expenses,
+      netProfit: netProfit,
+      cashFlow: cashFlow,
+      revenueGrowth: 12.5, // TODO: Calculate actual growth
+      expenseGrowth: 8.3, // TODO: Calculate actual growth
+    });
+
+    // Calculate expense categories
+    const categoryTotals = {};
+    transactions
+      .filter((t) => t.type === "expense")
+      .forEach((t) => {
+        categoryTotals[t.category] =
+          (categoryTotals[t.category] || 0) + t.amount;
+      });
+
+    const categoryColors = {
+      materials: "#ef4444",
+      labor: "#f97316",
+      operational: "#eab308",
+      marketing: "#22c55e",
+      utilities: "#6366f1",
+      transportation: "#8b5cf6",
+      others: "#64748b",
+    };
+
+    expenseCategories.value = Object.entries(categoryTotals)
+      .map(([category, amount]) => ({
+        name: getCategoryLabel(category),
+        amount,
+        percentage: expenses > 0 ? (amount / expenses) * 100 : 0,
+        color: categoryColors[category] || "#64748b",
+      }))
+      .sort((a, b) => b.amount - a.amount);
+
+    // Get recent transactions (last 5)
+    recentTransactions.value = transactions.slice(0, 5);
+
+    console.log("Financial data loaded:", financialData);
+  } catch (error) {
+    console.error("Error loading financial data:", error);
+    showMessage("Failed to load financial data", "error");
+  }
+};
+
+// Methods
+const formatPrice = (price) => {
+  if (!price) return "0";
+  return new Intl.NumberFormat("id-ID").format(price);
+};
+
+const formatDate = (date) => {
+  return new Date(date).toLocaleDateString("id-ID", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
+};
+
+const getCategoryLabel = (category) => {
+  const labels = {
+    sales: "Sales",
+    materials: "Raw Materials",
+    labor: "Labor Costs",
+    operational: "Operational",
+    marketing: "Marketing",
+    utilities: "Utilities",
+    transportation: "Transportation",
+    others: "Others",
+  };
+  return labels[category] || category;
+};
+
+const getTransactionIcon = (category) => {
+  const icons = {
+    sales: ShoppingCart,
+    materials: Truck,
+    labor: Users,
+    operational: Settings,
+    marketing: Smartphone,
+    utilities: Zap,
+    transportation: Car,
+    others: FileText,
+  };
+  return icons[category] || FileText;
+};
+
+const showMessage = (msg, type) => {
+  message.value = msg;
+  messageType.value = type;
+  setTimeout(() => {
+    message.value = "";
+    messageType.value = "";
+  }, 5000);
+};
+
+const refreshData = () => {
+  loadFinancialData();
+  showMessage("Financial data refreshed successfully!", "success");
+};
+
+const exportData = () => {
+  // TODO: Implement export functionality
+  console.log("Exporting financial data...");
+  showMessage("Export functionality will be implemented soon", "info");
+};
+
+onMounted(() => {
+  console.log("Loading finance dashboard...");
+  loadFinancialData();
+});
+</script>
+
+
+expenses.vue:
 <template>
   <div class="container mx-auto px-4 min-w-full">
     <!-- Header -->
@@ -11,6 +642,10 @@ Expenses:
         <Button variant="outline" @click="showFilters = !showFilters">
           <Filter class="mr-2 h-4 w-4" />
           Filters
+        </Button>
+        <Button variant="outline" @click="exportExpenses">
+          <Download class="mr-2 h-4 w-4" />
+          Export
         </Button>
         <Button @click="showAddExpenseModal = true">
           <Plus class="mr-2 h-4 w-4" />
@@ -66,7 +701,7 @@ Expenses:
             </Select>
           </div>
           <div>
-            <Labe class="mb-2">Date From</Labe>
+            <Label class="mb-2">Date From</Label>
             <Input type="date" v-model="filters.dateFrom" />
           </div>
           <div>
@@ -74,15 +709,25 @@ Expenses:
             <Input type="date" v-model="filters.dateTo" />
           </div>
         </div>
-        <div class="flex justify-end mt-4 space-x-2">
-          <Button variant="outline" @click="clearFilters">Clear</Button>
-          <Button @click="applyFilters">Apply Filters</Button>
+        <div class="flex justify-between items-center mt-4">
+          <div class="flex items-center space-x-2">
+            <Label>Search:</Label>
+            <Input
+              v-model="filters.search"
+              placeholder="Search expenses..."
+              class="w-64"
+            />
+          </div>
+          <div class="flex space-x-2">
+            <Button variant="outline" @click="clearFilters">Clear</Button>
+            <Button @click="applyFilters">Apply Filters</Button>
+          </div>
         </div>
       </CardContent>
     </Card>
 
     <!-- Expense Summary Cards -->
-    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
       <Card>
         <CardHeader
           class="flex flex-row items-center justify-between space-y-0"
@@ -143,8 +788,28 @@ Expenses:
 
     <!-- Expenses Table -->
     <Card class="mb-4">
-      <CardHeader>
-        <CardTitle>Expense Records</CardTitle>
+      <CardHeader class="flex flex-row items-center justify-between">
+        <div>
+          <CardTitle>Expense Records</CardTitle>
+          <CardDescription>
+            Showing {{ filteredExpenses.length }} of
+            {{ expenses.length }} expenses
+          </CardDescription>
+        </div>
+        <div class="flex items-center space-x-2">
+          <Select v-model="itemsPerPage">
+            <SelectTrigger class="w-20">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="10">10</SelectItem>
+              <SelectItem value="25">25</SelectItem>
+              <SelectItem value="50">50</SelectItem>
+              <SelectItem value="100">100</SelectItem>
+            </SelectContent>
+          </Select>
+          <span class="text-sm text-muted-foreground">per page</span>
+        </div>
       </CardHeader>
       <CardContent>
         <div v-if="loadingExpenses" class="text-center py-8">
@@ -167,16 +832,24 @@ Expenses:
             </TableRow>
           </TableHeader>
           <TableBody>
-            <TableRow v-for="expense in filteredExpenses" :key="expense.id">
+            <TableRow v-for="expense in paginatedExpenses" :key="expense.id">
               <TableCell class="font-mono">{{ expense.expenseId }}</TableCell>
               <TableCell>
-                <div>
-                  <div class="font-medium">{{ expense.description }}</div>
-                  <div
-                    v-if="expense.vendor"
-                    class="text-sm text-muted-foreground"
-                  >
-                    Vendor: {{ expense.vendor }}
+                <div class="flex items-center space-x-3">
+                  <div class="p-2 rounded-full bg-red-100">
+                    <component
+                      :is="getCategoryIcon(expense.category)"
+                      class="h-4 w-4 text-red-600"
+                    />
+                  </div>
+                  <div>
+                    <div class="font-medium">{{ expense.description }}</div>
+                    <div
+                      v-if="expense.vendor"
+                      class="text-sm text-muted-foreground"
+                    >
+                      Vendor: {{ expense.vendor }}
+                    </div>
                   </div>
                 </div>
               </TableCell>
@@ -185,10 +858,17 @@ Expenses:
                   getCategoryLabel(expense.category)
                 }}</Badge>
               </TableCell>
-              <TableCell class="font-bold"
-                >Rp {{ formatPrice(expense.amount) }}</TableCell
+              <TableCell class="font-bold text-red-600"
+                >-Rp {{ formatPrice(expense.amount) }}</TableCell
               >
-              <TableCell>{{ formatDate(expense.date) }}</TableCell>
+              <TableCell>
+                <div class="text-sm">
+                  {{ formatDate(expense.date) }}
+                </div>
+                <div class="text-xs text-muted-foreground">
+                  {{ formatTime(expense.date) }}
+                </div>
+              </TableCell>
               <TableCell>{{ expense.submittedBy }}</TableCell>
               <TableCell>
                 <Badge :variant="getStatusVariant(expense.status)">
@@ -224,6 +904,40 @@ Expenses:
             </TableRow>
           </TableBody>
         </Table>
+
+        <!-- Pagination -->
+        <div class="flex items-center justify-between mt-4">
+          <div class="text-sm text-muted-foreground">
+            Showing {{ (currentPage - 1) * parseInt(itemsPerPage) + 1 }} to
+            {{
+              Math.min(
+                currentPage * parseInt(itemsPerPage),
+                filteredExpenses.length
+              )
+            }}
+            of {{ filteredExpenses.length }} results
+          </div>
+          <div class="flex space-x-2">
+            <Button
+              variant="outline"
+              size="sm"
+              @click="previousPage"
+              :disabled="currentPage === 1"
+            >
+              <ChevronLeft class="h-4 w-4" />
+              Previous
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              @click="nextPage"
+              :disabled="currentPage === totalPages"
+            >
+              Next
+              <ChevronRight class="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
       </CardContent>
     </Card>
 
@@ -364,35 +1078,68 @@ Expenses:
       </DialogContent>
     </Dialog>
 
-    <!-- View Model -->
+    <!-- View Modal -->
     <Dialog v-model:open="showViewExpenseModal">
       <DialogContent class="max-w-xl">
         <DialogHeader>
           <DialogTitle>Expense Details</DialogTitle>
         </DialogHeader>
-        <div class="space-y-2 text-sm">
-          <p><strong>ID:</strong> {{ selectedExpense?.expenseId }}</p>
-          <p>
-            <strong>Description:</strong> {{ selectedExpense?.description }}
-          </p>
-          <p>
-            <strong>Amount:</strong> Rp
-            {{ formatPrice(selectedExpense?.amount) }}
-          </p>
-          <p>
-            <strong>Category:</strong>
-            {{ getCategoryLabel(selectedExpense?.category) }}
-          </p>
-          <p><strong>Status:</strong> {{ selectedExpense?.status }}</p>
-          <p><strong>Date:</strong> {{ formatDate(selectedExpense?.date) }}</p>
-          <p><strong>Vendor:</strong> {{ selectedExpense?.vendor }}</p>
-          <p>
-            <strong>Payment Method:</strong>
-            {{ selectedExpense?.paymentMethod }}
-          </p>
-          <p><strong>Notes:</strong> {{ selectedExpense?.notes }}</p>
-          <div v-if="selectedExpense?.receiptUrl">
-            <p><strong>Receipt:</strong></p>
+        <div v-if="selectedExpense" class="space-y-4">
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <Label class="font-medium mb-2">Expense ID</Label>
+              <p class="font-mono">{{ selectedExpense.expenseId }}</p>
+            </div>
+            <div>
+              <Label class="font-medium mb-2">Status</Label>
+              <Badge :variant="getStatusVariant(selectedExpense.status)">
+                {{ selectedExpense.status }}
+              </Badge>
+            </div>
+          </div>
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <Label class="font-medium mb-2">Amount</Label>
+              <p class="text-lg font-bold text-red-600">
+                -Rp {{ formatPrice(selectedExpense.amount) }}
+              </p>
+            </div>
+            <div>
+              <Label class="font-medium mb-2">Category</Label>
+              <p>{{ getCategoryLabel(selectedExpense.category) }}</p>
+            </div>
+          </div>
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <Label class="font-medium mb-2">Description</Label>
+              <p>{{ selectedExpense.description }}</p>
+            </div>
+            <div>
+              <Label class="font-medium mb-2">Vendor/Supplier</Label>
+              <p>{{ selectedExpense.vendor || "-" }}</p>
+            </div>
+          </div>
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <Label class="font-medium mb-2">Date</Label>
+              <p>
+                {{ formatDate(selectedExpense.date) }}
+                {{ formatTime(selectedExpense.date) }}
+              </p>
+            </div>
+            <div>
+              <Label class="font-medium mb-2">Payment Method</Label>
+              <p>{{ selectedExpense.paymentMethod || "-" }}</p>
+            </div>
+          </div>
+          <div v-if="selectedExpense.notes">
+            <Label class="font-medium mb-2">Notes</Label>
+            <p class="text-sm text-muted-foreground">
+              {{ selectedExpense.notes }}
+            </p>
+          </div>
+          <div v-if="selectedExpense.receiptUrl">
+            <Label class="font-medium mb-2">Receipt/Invoice</Label>
             <a
               :href="selectedExpense.receiptUrl"
               target="_blank"
@@ -407,8 +1154,14 @@ Expenses:
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted } from "vue";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ref, reactive, computed, onMounted, watch, nextTick } from "vue";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -439,6 +1192,7 @@ import {
 import {
   Plus,
   Filter,
+  Download,
   Eye,
   Edit,
   Trash2,
@@ -446,6 +1200,15 @@ import {
   Clock,
   CheckCircle,
   CreditCard,
+  ChevronLeft,
+  ChevronRight,
+  Truck,
+  Users,
+  Settings,
+  Smartphone,
+  Zap,
+  Car,
+  FileText,
 } from "lucide-vue-next";
 import {
   collection,
@@ -461,7 +1224,6 @@ import {
   deleteDoc,
 } from "firebase/firestore";
 import HeadersContent from "~/components/ui/HeadersContent.vue";
-import { nextTick } from "vue";
 
 definePageMeta({
   middleware: "auth",
@@ -481,12 +1243,16 @@ const isLoading = ref(false);
 const loadingExpenses = ref(false);
 const selectedExpense = ref(null);
 const showViewExpenseModal = ref(false);
+const currentPage = ref(1);
+const itemsPerPage = ref("25");
+const modalKey = ref(0);
 
 const filters = reactive({
   category: "all",
   status: "all",
   dateFrom: "",
   dateTo: "",
+  search: "",
 });
 
 // State for expense form
@@ -548,15 +1314,13 @@ const uploadToCloudinary = async (file) => {
       throw new Error(data.error.message);
     }
 
-    // JANGAN tutup modal di sini!
-    // showAddExpenseModal.value = false; // HAPUS BARIS INI
-
     return data.secure_url;
   } catch (error) {
     console.error("Cloudinary upload error:", error);
     throw new Error(`Failed to upload receipt: ${error.message}`);
   }
 };
+
 // Function to generate expense ID with yearly format
 const generateExpenseId = async () => {
   try {
@@ -685,8 +1449,29 @@ const filteredExpenses = computed(() => {
       (expense) => new Date(expense.date) <= new Date(filters.dateTo)
     );
   }
+  if (filters.search) {
+    const search = filters.search.toLowerCase();
+    filtered = filtered.filter(
+      (expense) =>
+        expense.description.toLowerCase().includes(search) ||
+        expense.expenseId.toLowerCase().includes(search) ||
+        (expense.vendor && expense.vendor.toLowerCase().includes(search))
+    );
+  }
 
   return filtered;
+});
+
+const totalPages = computed(() => {
+  return Math.ceil(
+    filteredExpenses.value.length / parseInt(itemsPerPage.value)
+  );
+});
+
+const paginatedExpenses = computed(() => {
+  const start = (currentPage.value - 1) * parseInt(itemsPerPage.value);
+  const end = start + parseInt(itemsPerPage.value);
+  return filteredExpenses.value.slice(start, end);
 });
 
 // Methods
@@ -703,6 +1488,13 @@ const formatDate = (date) => {
   });
 };
 
+const formatTime = (date) => {
+  return new Date(date).toLocaleTimeString("id-ID", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+};
+
 const getCategoryLabel = (category) => {
   const labels = {
     materials: "Raw Materials",
@@ -714,6 +1506,19 @@ const getCategoryLabel = (category) => {
     others: "Others",
   };
   return labels[category] || category;
+};
+
+const getCategoryIcon = (category) => {
+  const icons = {
+    materials: Truck,
+    labor: Users,
+    operational: Settings,
+    marketing: Smartphone,
+    utilities: Zap,
+    transportation: Car,
+    others: FileText,
+  };
+  return icons[category] || FileText;
 };
 
 const getStatusVariant = (status) => {
@@ -741,12 +1546,26 @@ const clearFilters = () => {
     status: "all",
     dateFrom: "",
     dateTo: "",
+    search: "",
   });
+  currentPage.value = 1;
 };
 
 const applyFilters = () => {
-  // Filters are applied automatically through computed property
+  currentPage.value = 1;
   showFilters.value = false;
+};
+
+const previousPage = () => {
+  if (currentPage.value > 1) {
+    currentPage.value--;
+  }
+};
+
+const nextPage = () => {
+  if (currentPage.value < totalPages.value) {
+    currentPage.value++;
+  }
 };
 
 const viewExpense = (expense) => {
@@ -982,12 +1801,17 @@ const closeExpenseModal = async () => {
     fileInput.value = "";
   }
 
+  modalKey.value++;
   console.log("Modal closed, showAddExpenseModal:", showAddExpenseModal.value);
 };
 
 const handleCancelExpense = async () => {
   console.log("Cancel button clicked");
   await closeExpenseModal();
+};
+
+const exportExpenses = () => {
+  console.log("Exporting expenses...");
 };
 
 watch(showAddExpenseModal, (newVal, oldVal) => {
@@ -1000,8 +1824,7 @@ onMounted(() => {
 });
 </script>
 
-
-Transaction:
+transaction.vue:
 <template>
   <div class="container mx-auto px-4 min-w-full">
     <!-- Header -->
@@ -1025,6 +1848,15 @@ Transaction:
         </Button>
       </div>
     </div>
+
+    <!-- Alert Messages -->
+    <Alert
+      v-if="message"
+      :class="messageType === 'error' ? 'border-red-500' : 'border-green-500'"
+      class="mb-6"
+    >
+      <AlertDescription>{{ message }}</AlertDescription>
+    </Alert>
 
     <!-- Filters -->
     <Card v-if="showFilters" class="mb-6">
@@ -1057,7 +1889,7 @@ Transaction:
                 <SelectItem value="operational">Operational</SelectItem>
                 <SelectItem value="marketing">Marketing</SelectItem>
                 <SelectItem value="utilities">Utilities</SelectItem>
-                <SelectItem value="transport">Transportation</SelectItem>
+                <SelectItem value="transportation">Transportation</SelectItem>
                 <SelectItem value="others">Others</SelectItem>
               </SelectContent>
             </Select>
@@ -1204,7 +2036,13 @@ Transaction:
         </div>
       </CardHeader>
       <CardContent>
-        <Table>
+        <div v-if="loadingTransactions" class="text-center py-8">
+          <div
+            class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"
+          ></div>
+          <p class="mt-2 text-sm text-muted-foreground">Loading transactions...</p>
+        </div>
+        <Table v-else>
           <TableHeader>
             <TableRow>
               <TableHead class="w-32">Transaction ID</TableHead>
@@ -1249,10 +2087,10 @@ Transaction:
                   <div>
                     <div class="font-medium">{{ transaction.description }}</div>
                     <div
-                      v-if="transaction.reference"
+                      v-if="transaction.entity"
                       class="text-sm text-muted-foreground"
                     >
-                      Ref: {{ transaction.reference }}
+                      {{ transaction.entity }}
                     </div>
                   </div>
                 </div>
@@ -1373,7 +2211,7 @@ Transaction:
     </Card>
 
     <!-- Add/Edit Transaction Modal -->
-    <Dialog v-model:open="showAddTransactionModal">
+    <Dialog v-model:open="showAddTransactionModal" :key="modalKey">
       <DialogContent class="max-w-2xl">
         <DialogHeader>
           <DialogTitle>{{
@@ -1381,10 +2219,20 @@ Transaction:
           }}</DialogTitle>
         </DialogHeader>
         <form @submit.prevent="saveTransaction" class="space-y-4">
+          <!-- Loading Status -->
+          <div v-if="uploadingStatus" class="text-center py-4">
+            <div
+              class="animate-spin rounded-full h-6 w-6 border-b-2 border-black mx-auto"
+            ></div>
+            <p class="mt-2 text-sm text-muted-foreground">
+              {{ uploadingStatus }}
+            </p>
+          </div>
+
           <div class="grid grid-cols-2 gap-4">
             <div>
               <Label for="type" class="mb-2">Transaction Type *</Label>
-              <Select v-model="transactionForm.type" required>
+              <Select v-model="transactionForm.type" :disabled="isLoading" required>
                 <SelectTrigger>
                   <SelectValue placeholder="Select type" />
                 </SelectTrigger>
@@ -1396,7 +2244,7 @@ Transaction:
             </div>
             <div>
               <Label for="category" class="mb-2">Category *</Label>
-              <Select v-model="transactionForm.category" required>
+              <Select v-model="transactionForm.category" :disabled="isLoading" required>
                 <SelectTrigger>
                   <SelectValue placeholder="Select category" />
                 </SelectTrigger>
@@ -1415,12 +2263,11 @@ Transaction:
           </div>
           <div class="grid grid-cols-2 gap-4">
             <div>
-              <Label for="entity" class="mb-2"
-                >Vendor/Supplier/Customer *</Label
-              >
+              <Label for="entity" class="mb-2">Vendor/Supplier/Customer *</Label>
               <Input
-                id="description"
+                id="entity"
                 v-model="transactionForm.entity"
+                :disabled="isLoading"
                 required
               />
             </div>
@@ -1429,6 +2276,7 @@ Transaction:
               <Input
                 id="description"
                 v-model="transactionForm.description"
+                :disabled="isLoading"
                 required
               />
             </div>
@@ -1440,6 +2288,7 @@ Transaction:
                 id="amount"
                 type="number"
                 v-model="transactionForm.amount"
+                :disabled="isLoading"
                 required
               />
             </div>
@@ -1449,6 +2298,7 @@ Transaction:
                 id="date"
                 type="datetime-local"
                 v-model="transactionForm.date"
+                :disabled="isLoading"
                 required
               />
             </div>
@@ -1456,7 +2306,7 @@ Transaction:
           <div class="grid grid-cols-2 gap-4">
             <div>
               <Label for="paymentMethod" class="mb-2">Payment Method *</Label>
-              <Select v-model="transactionForm.paymentMethod" required>
+              <Select v-model="transactionForm.paymentMethod" :disabled="isLoading" required>
                 <SelectTrigger>
                   <SelectValue placeholder="Select payment method" />
                 </SelectTrigger>
@@ -1472,7 +2322,7 @@ Transaction:
             </div>
             <div>
               <Label for="status" class="mb-2">Status</Label>
-              <Select v-model="transactionForm.status">
+              <Select v-model="transactionForm.status" :disabled="isLoading">
                 <SelectTrigger>
                   <SelectValue placeholder="Select status" />
                 </SelectTrigger>
@@ -1485,8 +2335,22 @@ Transaction:
             </div>
           </div>
           <div>
+            <Label for="reference" class="mb-2">Reference Number</Label>
+            <Input
+              id="reference"
+              v-model="transactionForm.reference"
+              :disabled="isLoading"
+              placeholder="INV-2024-001, ORD-001, etc."
+            />
+          </div>
+          <div>
             <Label for="notes" class="mb-2">Notes</Label>
-            <Textarea id="notes" v-model="transactionForm.notes" rows="3" />
+            <Textarea 
+              id="notes" 
+              v-model="transactionForm.notes" 
+              :disabled="isLoading"
+              rows="3" 
+            />
           </div>
           <div>
             <Label for="receipt" class="mb-2">Receipt/Invoice</Label>
@@ -1494,19 +2358,25 @@ Transaction:
               id="receipt"
               type="file"
               accept="image/*,application/pdf"
+              :disabled="isLoading"
               @change="handleFileUpload"
             />
+            <p class="text-sm text-muted-foreground mt-1">
+              Maximum file size: 5MB. Supported formats: JPG, PNG, PDF
+            </p>
           </div>
           <div class="flex justify-end space-x-2">
             <Button
               type="button"
               variant="outline"
-              @click="closeTransactionModal"
-              >Cancel</Button
+              :disabled="isLoading"
+              @click="handleCancelTransaction"
             >
-            <Button type="submit"
-              >{{ editingTransaction ? "Update" : "Save" }} Transaction</Button
-            >
+              Cancel
+            </Button>
+            <Button type="submit" :disabled="isLoading">
+              {{ editingTransaction ? "Update" : "Save" }} Transaction
+            </Button>
           </div>
         </form>
       </DialogContent>
@@ -1600,6 +2470,15 @@ Transaction:
               {{ selectedTransaction.notes }}
             </p>
           </div>
+          <div v-if="selectedTransaction.receiptUrl">
+            <Label class="font-medium mb-2">Receipt/Invoice</Label>
+            <a
+              :href="selectedTransaction.receiptUrl"
+              target="_blank"
+              class="text-blue-600 underline"
+              >View Receipt</a
+            >
+          </div>
         </div>
       </DialogContent>
     </Dialog>
@@ -1607,7 +2486,7 @@ Transaction:
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted } from "vue";
+import { ref, reactive, computed, onMounted, watch, nextTick } from "vue";
 import {
   Card,
   CardContent,
@@ -1619,6 +2498,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
   Select,
   SelectContent,
@@ -1680,7 +2560,6 @@ import {
   setDoc,
   deleteDoc,
 } from "firebase/firestore";
-import { nextTick } from "vue";
 
 definePageMeta({
   middleware: "auth",
@@ -1697,6 +2576,12 @@ const editingTransaction = ref(null);
 const selectedTransaction = ref(null);
 const currentPage = ref(1);
 const itemsPerPage = ref("25");
+const uploadingStatus = ref("");
+const message = ref("");
+const messageType = ref("");
+const isLoading = ref(false);
+const loadingTransactions = ref(false);
+const modalKey = ref(0);
 
 const filters = reactive({
   type: "all",
@@ -1719,125 +2604,125 @@ const transactionForm = reactive({
   status: "completed",
   reference: "",
   notes: "",
-  receipt: null,
+  receiptFile: null,
 });
 
-// Reactive state for transactions summary
+const transactions = ref([]);
 
-const transactions = ref([
-  {
-    id: 1,
-    transactionId: "TXN-001",
-    type: "income",
-    entity: "John Doe",
-    description: "Order Payment - ORD-001",
-    category: "sales",
-    amount: 2500000,
-    date: new Date(),
-    paymentMethod: "bank_transfer",
-    status: "completed",
-    reference: "ORD-001",
-    notes: "Payment for custom cake order",
-  },
-  {
-    id: 2,
-    transactionId: "TXN-002",
-    type: "expense",
-    entity: "Supplier A",
-    description: "Raw Material Purchase - Flour & Sugar",
-    category: "materials",
-    amount: 1200000,
-    date: new Date(Date.now() - 86400000),
-    paymentMethod: "cash",
-    status: "completed",
-    reference: "INV-2024-001",
-    notes: "Monthly ingredient stock",
-  },
-  {
-    id: 3,
-    transactionId: "TXN-003",
-    type: "expense",
-    entity: "Production Team",
-    description: "Employee Salary - Production Team",
-    category: "labor",
-    amount: 8000000,
-    date: new Date(Date.now() - 172800000),
-    paymentMethod: "bank_transfer",
-    status: "completed",
-    reference: "SAL-2024-01",
-    notes: "Monthly salary payment",
-  },
-  {
-    id: 4,
-    transactionId: "TXN-004",
-    type: "expense",
-    entity: "Office Landlord",
-    description: "Office Rent Payment",
-    category: "operational",
-    amount: 3000000,
-    date: new Date(Date.now() - 259200000),
-    paymentMethod: "bank_transfer",
-    status: "pending",
-    reference: "RENT-2024-01",
-    notes: "Monthly office rent",
-  },
-  {
-    id: 5,
-    transactionId: "TXN-005",
-    type: "income",
-    entity: "Jane Smith",
-    description: "Order Payment - ORD-002",
-    category: "sales",
-    amount: 1800000,
-    date: new Date(Date.now() - 345600000),
-    paymentMethod: "credit_card",
-    status: "completed",
-    reference: "ORD-002",
-    notes: "Wedding cake order",
-  },
-  {
-    id: 6,
-    transactionId: "TXN-006",
-    type: "expense",
-    entity: "Marketing Agency",
-    description: "Marketing Campaign - Social Media Ads",
-    category: "marketing",
-    amount: 500000,
-    date: new Date(Date.now() - 432000000),
-    paymentMethod: "credit_card",
-    status: "completed",
-    reference: "MKT-2024-001",
-    notes: "Facebook and Instagram ads",
-  },
-  {
-    id: 7,
-    transactionId: "TXN-007",
-    type: "expense",
-    entity: "Electricity Company",
-    description: "Electricity Bill",
-    category: "utilities",
-    amount: 750000,
-    date: new Date(Date.now() - 518400000),
-    paymentMethod: "bank_transfer",
-    status: "completed",
-    reference: "PLN-2024-01",
-    notes: "Monthly electricity bill",
-  },
-  {
-    id: 8,
-    transactionId: "TXN-008",
-    type: "expense",
-    entity: "Delivery Service",
-    description: "Delivery Service",
-    category: "transport",
-    amount: 300000,
-    date: new Date(Date.now() - 604800000),
-    paymentMethod: "cash",
-    status: "completed",
-    reference: "DEL-2024-001",
-    notes: "Customer delivery charges",
-  },
-]);
+// Function to upload receipt to Cloudinary
+const uploadToCloudinary = async (file) => {
+  try {
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("upload_preset", config.public.cloudinaryUploadPreset);
+    formData.append("folder", "TokoKueDlillah/transactions/receipts");
+
+    const timestamp = new Date().getTime();
+    const filename = `receipt_${timestamp}_${file.name.replace(
+      /[^a-zA-Z0-9.]/g,
+      "_"
+    )}`;
+    formData.append(
+      "public_id",
+      `TokoKueDlillah/transactions/receipts/${filename}`
+    );
+
+    const response = await fetch(
+      `https://api.cloudinary.com/v1_1/${config.public.cloudinaryCloudName}/image/upload`,
+      {
+        method: "POST",
+        body: formData,
+      }
+    );
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`HTTP error! status: ${response.status} - ${errorText}`);
+    }
+
+    const data = await response.json();
+
+    if (data.error) {
+      throw new Error(data.error.message);
+    }
+
+    return data.secure_url;
+  } catch (error) {
+    console.error("Cloudinary upload error:", error);
+    throw new Error(`Failed to upload receipt: ${error.message}`);
+  }
+};
+
+// Function to generate transaction ID
+const generateTransactionId = async () => {
+  try {
+    const { $firebase } = useNuxtApp();
+    const currentYear = new Date().getFullYear();
+    const yearPrefix = `TXN-${currentYear}`;
+
+    const transactionsQuery = query(
+      collection($firebase.firestore, "transactions"),
+      where("transactionId", ">=", `${yearPrefix}-001`),
+      where("transactionId", "<", `${yearPrefix}-999`),
+      orderBy("transactionId", "desc"),
+      limit(1)
+    );
+
+    const querySnapshot = await getDocs(transactionsQuery);
+
+    let nextNumber = 1;
+
+    if (!querySnapshot.empty) {
+      const lastTransaction = querySnapshot.docs[0].data();
+      const lastId = lastTransaction.transactionId;
+      const parts = lastId.split("-");
+      if (parts.length === 3) {
+        const lastNumber = parseInt(parts[2]) || 0;
+        nextNumber = lastNumber + 1;
+      }
+    }
+
+    const formattedNumber = nextNumber.toString().padStart(3, "0");
+    return `${yearPrefix}-${formattedNumber}`;
+  } catch (error) {
+    console.error("Error generating transaction ID:", error);
+    return `TXN-${new Date().getFullYear()}-${Date.now().toString().slice(-3)}`;
+  }
+};
+
+// Function to fetch transactions from Firestore
+const fetchTransactions = async () => {
+  try {
+    loadingTransactions.value = true;
+    const { $firebase } = useNuxtApp();
+
+    const transactionsQuery = query(
+      collection($firebase.firestore, "transactions"),
+      orderBy("createdAt", "desc")
+    );
+
+    const querySnapshot = await getDocs(transactionsQuery);
+
+    transactions.value = querySnapshot.docs.map((doc) => {
+      const data = doc.data();
+      return {
+        id: doc.id,
+        ...data,
+        date: data.date?.toDate ? data.date.toDate() : new Date(data.date),
+        createdAt: data.createdAt?.toDate
+          ? data.createdAt.toDate()
+          : new Date(),
+      };
+    });
+
+    console.log("Fetched transactions:", transactions.value);
+  } catch (error) {
+    console.error("Error fetching transactions:", error);
+    showMessage("Failed to load transactions", "error");
+  } finally {
+    loadingTransactions.value = false;
+  }
+};
 
 // Computed
 const filteredTransactions = computed(() => {
@@ -1868,7 +2753,8 @@ const filteredTransactions = computed(() => {
       (t) =>
         t.description.toLowerCase().includes(search) ||
         t.transactionId.toLowerCase().includes(search) ||
-        (t.reference && t.reference.toLowerCase().includes(search))
+        (t.reference && t.reference.toLowerCase().includes(search)) ||
+        (t.entity && t.entity.toLowerCase().includes(search))
     );
   }
 
@@ -1938,7 +2824,7 @@ const getCategoryLabel = (category) => {
     operational: "Operational",
     marketing: "Marketing",
     utilities: "Utilities",
-    transport: "Transport",
+    transportation: "Transportation",
     others: "Others",
   };
   return labels[category] || category;
@@ -1973,7 +2859,7 @@ const getTransactionIcon = (category) => {
     operational: Settings,
     marketing: Smartphone,
     utilities: Zap,
-    transport: Car,
+    transportation: Car,
     others: FileText,
   };
   return icons[category] || FileText;
@@ -1989,6 +2875,15 @@ const getPaymentIcon = (method) => {
     digital_wallet: Smartphone,
   };
   return icons[method] || CreditCard;
+};
+
+const showMessage = (msg, type) => {
+  message.value = msg;
+  messageType.value = type;
+  setTimeout(() => {
+    message.value = "";
+    messageType.value = "";
+  }, 5000);
 };
 
 const clearFilters = () => {
@@ -2042,47 +2937,200 @@ const editTransaction = (transaction) => {
   showAddTransactionModal.value = true;
 };
 
-const deleteTransaction = (transactionId) => {
+const deleteTransaction = async (transactionId) => {
   if (confirm("Are you sure you want to delete this transaction?")) {
-    const index = transactions.value.findIndex((t) => t.id === transactionId);
-    if (index !== -1) {
-      transactions.value.splice(index, 1);
+    try {
+      const { $firebase } = useNuxtApp();
+      await deleteDoc(doc($firebase.firestore, "transactions", transactionId));
+
+      transactions.value = transactions.value.filter((t) => t.id !== transactionId);
+      showMessage("Transaction deleted successfully!", "success");
+    } catch (error) {
+      console.error("Delete error:", error);
+      showMessage("Failed to delete transaction", "error");
     }
   }
 };
 
-const saveTransaction = () => {
-  if (editingTransaction.value) {
-    // Update existing transaction
-    const index = transactions.value.findIndex(
-      (t) => t.id === editingTransaction.value.id
-    );
-    if (index !== -1) {
-      transactions.value[index] = {
-        ...transactions.value[index],
-        ...transactionForm,
+const handleFileUpload = (event) => {
+  const file = event.target.files[0];
+  if (!file) return;
+
+  if (file.size > 5 * 1024 * 1024) {
+    showMessage("File size must be less than 5MB", "error");
+    return;
+  }
+
+  const allowedTypes = [
+    "image/jpeg",
+    "image/png",
+    "image/jpg",
+    "application/pdf",
+  ];
+
+  if (!allowedTypes.includes(file.type)) {
+    showMessage("Please select a valid image (JPG, PNG) or PDF file", "error");
+    return;
+  }
+
+  transactionForm.receiptFile = file;
+};
+
+const validateForm = () => {
+  if (
+    !transactionForm.type ||
+    !transactionForm.category ||
+    !transactionForm.entity ||
+    !transactionForm.description ||
+    !transactionForm.amount ||
+    !transactionForm.date ||
+    !transactionForm.paymentMethod
+  ) {
+    showMessage("Please fill in all required fields", "error");
+    return false;
+  }
+
+  if (transactionForm.amount <= 0) {
+    showMessage("Amount must be greater than 0", "error");
+    return false;
+  }
+
+  return true;
+};
+
+const saveTransaction = async () => {
+  console.log("Starting saveTransaction...");
+
+  if (!validateForm()) {
+    console.log("Form validation failed");
+    return;
+  }
+
+  isLoading.value = true;
+
+  try {
+    const { $firebase } = useNuxtApp();
+
+    // Generate transaction ID
+    const transactionId = await generateTransactionId();
+    console.log("Generated transaction ID:", transactionId);
+
+    // Upload receipt if exists
+    let receiptUrl = "";
+    if (transactionForm.receiptFile) {
+      try {
+        uploadingStatus.value = "Uploading receipt...";
+        receiptUrl = await uploadToCloudinary(transactionForm.receiptFile);
+        console.log("Receipt uploaded successfully:", receiptUrl);
+      } catch (error) {
+        console.error("Receipt upload failed:", error);
+        showMessage(`Failed to upload receipt: ${error.message}`, "error");
+        return;
+      }
+    }
+
+    uploadingStatus.value = "Saving transaction...";
+
+    if (editingTransaction.value) {
+      // Update existing transaction
+      const transactionData = {
+        type: transactionForm.type,
+        category: transactionForm.category,
+        entity: transactionForm.entity,
+        description: transactionForm.description,
+        amount: Number(transactionForm.amount),
         date: new Date(transactionForm.date),
+        paymentMethod: transactionForm.paymentMethod,
+        status: transactionForm.status,
+        reference: transactionForm.reference || "",
+        notes: transactionForm.notes || "",
+        receiptUrl: receiptUrl || editingTransaction.value.receiptUrl,
+        updatedAt: serverTimestamp(),
       };
+
+      await setDoc(
+        doc($firebase.firestore, "transactions", editingTransaction.value.id),
+        transactionData,
+        { merge: true }
+      );
+
+      // Update local state
+      const index = transactions.value.findIndex(
+        (t) => t.id === editingTransaction.value.id
+      );
+      if (index !== -1) {
+        transactions.value[index] = {
+          ...transactions.value[index],
+          ...transactionData,
+          date: new Date(transactionForm.date),
+          updatedAt: new Date(),
+        };
+      }
+
+      showMessage("Transaction updated successfully!", "success");
+    } else {
+      // Add new transaction
+      const transactionData = {
+        transactionId: transactionId,
+        type: transactionForm.type,
+        category: transactionForm.category,
+        entity: transactionForm.entity,
+        description: transactionForm.description,
+        amount: Number(transactionForm.amount),
+        date: new Date(transactionForm.date),
+        paymentMethod: transactionForm.paymentMethod,
+        status: transactionForm.status,
+        reference: transactionForm.reference || "",
+        notes: transactionForm.notes || "",
+        receiptUrl: receiptUrl,
+        submittedBy:
+          user.value?.firstName + " " + user.value?.lastName ||
+          user.value?.email ||
+          "Unknown",
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      };
+
+      console.log("Saving new transaction data:", transactionData);
+
+      const docRef = await addDoc(
+        collection($firebase.firestore, "transactions"),
+        transactionData
+      );
+
+      // Add to local state
+      const newTransaction = {
+        id: docRef.id,
+        ...transactionData,
+        date: new Date(transactionForm.date),
+        createdAt: new Date(),
+      };
+
+      transactions.value.unshift(newTransaction);
+      showMessage("Transaction added successfully!", "success");
     }
-  } else {
-    // Add new transaction
-    const newTransaction = {
-      id: Date.now(),
-      transactionId: `TXN-${String(transactions.value.length + 1).padStart(
-        3,
-        "0"
-      )}`,
-      ...transactionForm,
-      date: new Date(transactionForm.date),
-    };
-    transactions.value.unshift(newTransaction);
+
+    // Close modal with delay
+    setTimeout(async () => {
+      await closeTransactionModal();
+    }, 500);
+  } catch (error) {
+    console.error("Error saving transaction:", error);
+    showMessage("Failed to save transaction. Please try again.", "error");
+  } finally {
+    isLoading.value = false;
+    uploadingStatus.value = "";
   }
-  closeTransactionModal();
 };
 
-const closeTransactionModal = () => {
+const closeTransactionModal = async () => {
+  console.log("Closing transaction modal...");
+
   showAddTransactionModal.value = false;
   editingTransaction.value = null;
+  uploadingStatus.value = "";
+
+  // Reset form
   Object.assign(transactionForm, {
     type: "",
     category: "",
@@ -2094,15 +3142,22 @@ const closeTransactionModal = () => {
     status: "completed",
     reference: "",
     notes: "",
-    receipt: null,
+    receiptFile: null,
   });
+
+  // Reset file input
+  await nextTick();
+  const fileInput = document.getElementById("receipt");
+  if (fileInput) {
+    fileInput.value = "";
+  }
+  
+  modalKey.value++;
 };
 
-const handleFileUpload = (event) => {
-  const file = event.target.files[0];
-  if (file) {
-    expenseForm.receipt = file;
-  }
+const handleCancelTransaction = async () => {
+  console.log("Cancel button clicked");
+  await closeTransactionModal();
 };
 
 const exportTransactions = () => {
@@ -2110,7 +3165,12 @@ const exportTransactions = () => {
   console.log("Exporting transactions...");
 };
 
+watch(showAddTransactionModal, (newVal, oldVal) => {
+  console.log(`Modal state changed from ${oldVal} to ${newVal}`);
+});
+
 onMounted(() => {
   console.log("Transaction management loaded");
+  fetchTransactions();
 });
 </script>

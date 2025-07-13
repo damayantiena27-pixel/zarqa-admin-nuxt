@@ -239,9 +239,24 @@
               </TableCell>
               <TableCell>{{ expense.submittedBy }}</TableCell>
               <TableCell>
-                <Badge :variant="getStatusVariant(expense.status)">
-                  {{ expense.status }}
-                </Badge>
+                <div class="flex items-center space-x-2">
+                  <Badge :variant="getStatusVariant(expense.status)">
+                    {{ expense.status }}
+                  </Badge>
+                  <div
+                    v-if="expense.status === 'approved' && canMarkAsPaid"
+                    class="flex space-x-1"
+                  >
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      @click="markAsPaid(expense)"
+                      class="text-green-600 hover:text-green-700"
+                    >
+                      Mark Paid
+                    </Button>
+                  </div>
+                </div>
               </TableCell>
               <TableCell>
                 <div class="flex space-x-2">
@@ -256,6 +271,7 @@
                     variant="ghost"
                     size="sm"
                     @click="editExpense(expense)"
+                    :disabled="expense.status === 'paid'"
                   >
                     <Edit class="h-4 w-4" />
                   </Button>
@@ -264,6 +280,7 @@
                     size="sm"
                     @click="deleteExpense(expense.id)"
                     class="text-red-600"
+                    :disabled="expense.status === 'paid' || !canMarkAsPaid"
                   >
                     <Trash2 class="h-4 w-4" />
                   </Button>
@@ -600,6 +617,16 @@ definePageMeta({
 const config = useRuntimeConfig();
 const { user } = useAuth();
 
+// Access control computed - only manager, owner and manager can mark as paid
+const canMarkAsPaid = computed(() => {
+  // return user.value && user.value.role?.toLowerCase() === "admin";
+  return (
+    user.value &&
+    (user.value.role?.toLowerCase() === "manager" ||
+      user.value.role?.toLowerCase() === "owner")
+  );
+});
+
 // State
 const showFilters = ref(false);
 const showAddExpenseModal = ref(false);
@@ -726,6 +753,132 @@ const generateExpenseId = async () => {
     console.error("Error generating expense ID:", error);
     // Fallback with timestamp
     return `EXP-${new Date().getFullYear()}-${Date.now().toString().slice(-3)}`;
+  }
+};
+
+// Function to generate transaction ID
+const generateTransactionId = async () => {
+  try {
+    const { $firebase } = useNuxtApp();
+    const currentYear = new Date().getFullYear();
+    const yearPrefix = `TXN-${currentYear}`;
+
+    const transactionsQuery = query(
+      collection($firebase.firestore, "transactions"),
+      where("transactionId", ">=", `${yearPrefix}-001`),
+      where("transactionId", "<", `${yearPrefix}-999`),
+      orderBy("transactionId", "desc"),
+      limit(1)
+    );
+
+    const querySnapshot = await getDocs(transactionsQuery);
+
+    let nextNumber = 1;
+
+    if (!querySnapshot.empty) {
+      const lastTransaction = querySnapshot.docs[0].data();
+      const lastId = lastTransaction.transactionId;
+      const parts = lastId.split("-");
+      if (parts.length === 3) {
+        const lastNumber = parseInt(parts[2]) || 0;
+        nextNumber = lastNumber + 1;
+      }
+    }
+
+    const formattedNumber = nextNumber.toString().padStart(3, "0");
+    return `${yearPrefix}-${formattedNumber}`;
+  } catch (error) {
+    console.error("Error generating transaction ID:", error);
+    return `TXN-${new Date().getFullYear()}-${Date.now().toString().slice(-3)}`;
+  }
+};
+
+// Function to create transaction when expense is marked as paid
+const createTransactionFromExpense = async (expense) => {
+  try {
+    const { $firebase } = useNuxtApp();
+    const transactionId = await generateTransactionId();
+
+    const transactionData = {
+      transactionId: transactionId,
+      type: "expense",
+      category: expense.category,
+      entity: expense.vendor || "Unknown Vendor",
+      description: expense.description,
+      amount: expense.amount,
+      date: new Date(),
+      paymentMethod: expense.paymentMethod || "cash",
+      status: "completed",
+      reference: expense.expenseId,
+      notes: `Auto-generated from expense: ${expense.expenseId}`,
+      receiptUrl: expense.receiptUrl || "",
+      submittedBy:
+        user.value?.firstName + " " + user.value?.lastName ||
+        user.value?.email ||
+        "System",
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    };
+
+    await addDoc(
+      collection($firebase.firestore, "transactions"),
+      transactionData
+    );
+    console.log("Transaction created for expense:", expense.expenseId);
+  } catch (error) {
+    console.error("Error creating transaction from expense:", error);
+    throw error;
+  }
+};
+
+// Function to mark expense as paid
+const markAsPaid = async (expense) => {
+  if (
+    !confirm(
+      `Mark expense ${expense.expenseId} as paid? This will create a transaction record.`
+    )
+  ) {
+    return;
+  }
+
+  try {
+    const { $firebase } = useNuxtApp();
+
+    // Update expense status to paid
+    const expenseData = {
+      status: "paid",
+      paidAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    };
+
+    await setDoc(
+      doc($firebase.firestore, "expenses", expense.id),
+      expenseData,
+      { merge: true }
+    );
+
+    // Create corresponding transaction
+    await createTransactionFromExpense(expense);
+
+    // Update local state
+    const index = expenses.value.findIndex((e) => e.id === expense.id);
+    if (index !== -1) {
+      expenses.value[index] = {
+        ...expenses.value[index],
+        status: "paid",
+        paidAt: new Date(),
+        updatedAt: new Date(),
+      };
+    }
+
+    calculateExpenseSummary();
+    showMessage(
+      "Expense marked as paid and transaction created successfully!",
+      "success"
+    );
+  } catch (error) {
+    console.error("Error marking expense as paid:", error);
+    showMessage("Failed to mark expense as paid", "error");
   }
 };
 
@@ -1178,8 +1331,58 @@ const handleCancelExpense = async () => {
   await closeExpenseModal();
 };
 
-const exportExpenses = () => {
-  console.log("Exporting expenses...");
+const exportExpenses = async () => {
+  try {
+    const dataToExport = filteredExpenses.value.map((expense) => ({
+      "Expense ID": expense.expenseId,
+      Description: expense.description,
+      Category: getCategoryLabel(expense.category),
+      Amount: expense.amount,
+      Date: formatDate(expense.date),
+      Vendor: expense.vendor || "",
+      Status: expense.status,
+      "Submitted By": expense.submittedBy,
+      "Payment Method": expense.paymentMethod || "",
+      Notes: expense.notes || "",
+    }));
+
+    if (dataToExport.length === 0) {
+      showMessage("No expenses to export", "error");
+      return;
+    }
+
+    const headers = Object.keys(dataToExport[0]);
+    const csvContent = [
+      headers.join(","),
+      ...dataToExport.map((row) =>
+        Object.values(row)
+          .map((value) =>
+            typeof value === "string" && value.includes(",")
+              ? `"${value}"`
+              : value
+          )
+          .join(",")
+      ),
+    ].join("\n");
+
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
+    const url = URL.createObjectURL(blob);
+    link.setAttribute("href", url);
+    link.setAttribute(
+      "download",
+      `expenses-${new Date().toISOString().split("T")[0]}.csv`
+    );
+    link.style.visibility = "hidden";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    showMessage("Expenses exported successfully!", "success");
+  } catch (error) {
+    console.error("Export error:", error);
+    showMessage("Failed to export expenses", "error");
+  }
 };
 
 watch(showAddExpenseModal, (newVal, oldVal) => {

@@ -199,7 +199,10 @@
           <CardDescription>Breakdown by category</CardDescription>
         </CardHeader>
         <CardContent>
-          <div class="space-y-4">
+          <div v-if="expenseCategories.length === 0" class="text-center py-8">
+            <p class="text-muted-foreground">No expense data available</p>
+          </div>
+          <div v-else class="space-y-4">
             <div
               v-for="category in expenseCategories"
               :key="category.name"
@@ -246,6 +249,12 @@
           <p class="mt-2 text-sm text-muted-foreground">
             Loading transactions...
           </p>
+        </div>
+        <div
+          v-else-if="recentTransactions.length === 0"
+          class="text-center py-8"
+        >
+          <p class="text-muted-foreground">No recent transactions</p>
         </div>
         <div v-else class="space-y-4">
           <div
@@ -306,7 +315,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, computed } from "vue";
+import { ref, reactive, onMounted } from "vue";
 import {
   Card,
   CardContent,
@@ -332,56 +341,22 @@ import {
   Wallet,
   Download,
   RefreshCw,
-  BarChart3,
   ArrowRight,
   ShoppingCart,
   Truck,
   Users,
   Settings,
-  CreditCard,
   Smartphone,
   Zap,
   Car,
   FileText,
+  Briefcase,
+  Home,
+  TrendingUpIcon,
 } from "lucide-vue-next";
 import HeadersContent from "~/components/ui/HeadersContent.vue";
-import {
-  collection,
-  getDocs,
-  query,
-  where,
-  orderBy,
-  limit,
-} from "firebase/firestore";
+import { collection, getDocs, query, where, orderBy } from "firebase/firestore";
 import OverviewChart from "@/components/chart/OverviewChart.vue";
-
-// Data untuk chart
-const chartData = {
-  labels: [
-    "Jan",
-    "Feb",
-    "Mar",
-    "Apr",
-    "May",
-    "Jun",
-    "Jul",
-    "Aug",
-    "Sep",
-    "Oct",
-    "Nov",
-    "Dec",
-  ],
-  datasets: [
-    {
-      data: [
-        5500, 4000, 2000, 2400, 3900, 1900, 3100, 2300, 4400, 3600, 5400, 4500,
-      ],
-      backgroundColor: "#FF4F0F",
-      borderRadius: 4,
-      borderSkipped: false,
-    },
-  ],
-};
 
 definePageMeta({
   middleware: "auth",
@@ -408,6 +383,38 @@ const financialData = reactive({
 
 const expenseCategories = ref([]);
 const recentTransactions = ref([]);
+const chartData = ref({
+  labels: [
+    "Jan",
+    "Feb",
+    "Mar",
+    "Apr",
+    "May",
+    "Jun",
+    "Jul",
+    "Aug",
+    "Sep",
+    "Oct",
+    "Nov",
+    "Dec",
+  ],
+  datasets: [
+    {
+      label: "Revenue",
+      data: Array(12).fill(0),
+      backgroundColor: "#22c55e",
+      borderRadius: 4,
+      borderSkipped: false,
+    },
+    {
+      label: "Expenses",
+      data: Array(12).fill(0),
+      backgroundColor: "#ef4444",
+      borderRadius: 4,
+      borderSkipped: false,
+    },
+  ],
+});
 
 // Helper function to get date range based on selected period
 const getDateRange = () => {
@@ -465,22 +472,93 @@ const getDateRange = () => {
   return { startDate, endDate };
 };
 
+// Function to get previous period date range for growth calculation
+const getPreviousPeriodRange = () => {
+  const { startDate, endDate } = getDateRange();
+  const periodLength = endDate.getTime() - startDate.getTime();
+
+  const prevEndDate = new Date(startDate.getTime());
+  const prevStartDate = new Date(startDate.getTime() - periodLength);
+
+  return { startDate: prevStartDate, endDate: prevEndDate };
+};
+
+// Function to generate monthly chart data
+const generateChartData = (transactions) => {
+  const monthlyData = {
+    revenue: Array(12).fill(0),
+    expenses: Array(12).fill(0),
+  };
+
+  const currentYear = new Date().getFullYear();
+
+  transactions.forEach((transaction) => {
+    const transactionDate = transaction.date;
+    if (transactionDate.getFullYear() === currentYear) {
+      const month = transactionDate.getMonth();
+
+      if (transaction.type === "income") {
+        monthlyData.revenue[month] += transaction.amount;
+      } else if (transaction.type === "expense") {
+        monthlyData.expenses[month] += transaction.amount;
+      }
+    }
+  });
+
+  return {
+    labels: [
+      "Jan",
+      "Feb",
+      "Mar",
+      "Apr",
+      "May",
+      "Jun",
+      "Jul",
+      "Aug",
+      "Sep",
+      "Oct",
+      "Nov",
+      "Dec",
+    ],
+    datasets: [
+      {
+        label: "Revenue",
+        data: monthlyData.revenue,
+        backgroundColor: "#22c55e",
+        borderRadius: 4,
+        borderSkipped: false,
+      },
+      {
+        label: "Expenses",
+        data: monthlyData.expenses,
+        backgroundColor: "#ef4444",
+        borderRadius: 4,
+        borderSkipped: false,
+      },
+    ],
+  };
+};
+
 // Function to fetch financial data from Firestore
 const loadFinancialData = async () => {
   try {
+    loadingTransactions.value = true;
     const { $firebase } = useNuxtApp();
     const { startDate, endDate } = getDateRange();
+    const { startDate: prevStartDate, endDate: prevEndDate } =
+      getPreviousPeriodRange();
 
-    // Fetch transactions within date range
-    const transactionsQuery = query(
+    // Fetch current period transactions
+    const currentTransactionsQuery = query(
       collection($firebase.firestore, "transactions"),
       where("date", ">=", startDate),
       where("date", "<", endDate),
+      where("status", "==", "completed"), // Only completed transactions
       orderBy("date", "desc")
     );
 
-    const transactionsSnapshot = await getDocs(transactionsQuery);
-    const transactions = transactionsSnapshot.docs.map((doc) => {
+    const currentSnapshot = await getDocs(currentTransactionsQuery);
+    const currentTransactions = currentSnapshot.docs.map((doc) => {
       const data = doc.data();
       return {
         id: doc.id,
@@ -489,41 +567,71 @@ const loadFinancialData = async () => {
       };
     });
 
-    // Calculate revenue (only sales income)
-    const revenue = transactions
-      .filter((t) => t.type === "income" && t.category === "sales")
-      .reduce((sum, t) => sum + t.amount, 0);
+    // Fetch previous period transactions for growth calculation
+    const prevTransactionsQuery = query(
+      collection($firebase.firestore, "transactions"),
+      where("date", ">=", prevStartDate),
+      where("date", "<", prevEndDate),
+      where("status", "==", "completed"),
+      orderBy("date", "desc")
+    );
 
-    // Calculate total expenses (all expense transactions)
-    const expenses = transactions
-      .filter((t) => t.type === "expense")
-      .reduce((sum, t) => sum + t.amount, 0);
+    const prevSnapshot = await getDocs(prevTransactionsQuery);
+    const prevTransactions = prevSnapshot.docs.map((doc) => {
+      const data = doc.data();
+      return {
+        id: doc.id,
+        ...data,
+        date: data.date?.toDate ? data.date.toDate() : new Date(data.date),
+      };
+    });
 
-    // Calculate net profit
-    const netProfit = revenue - expenses;
-
-    // Calculate cash flow (all income - all expenses)
-    const totalIncome = transactions
+    // Calculate current period metrics - ALL INCOME for revenue
+    const currentRevenue = currentTransactions
       .filter((t) => t.type === "income")
       .reduce((sum, t) => sum + t.amount, 0);
-    const totalExpenses = transactions
+
+    const currentExpenses = currentTransactions
       .filter((t) => t.type === "expense")
       .reduce((sum, t) => sum + t.amount, 0);
-    const cashFlow = totalIncome - totalExpenses;
+
+    // Calculate previous period metrics - ALL INCOME for revenue
+    const prevRevenue = prevTransactions
+      .filter((t) => t.type === "income")
+      .reduce((sum, t) => sum + t.amount, 0);
+
+    const prevExpenses = prevTransactions
+      .filter((t) => t.type === "expense")
+      .reduce((sum, t) => sum + t.amount, 0);
+
+    // Calculate growth percentages
+    const revenueGrowth =
+      prevRevenue > 0
+        ? ((currentRevenue - prevRevenue) / prevRevenue) * 100
+        : 0;
+
+    const expenseGrowth =
+      prevExpenses > 0
+        ? ((currentExpenses - prevExpenses) / prevExpenses) * 100
+        : 0;
+
+    // Calculate metrics
+    const netProfit = currentRevenue - currentExpenses;
+    const cashFlow = currentRevenue - currentExpenses; // Same as net profit for simplicity
 
     // Update financial data
     Object.assign(financialData, {
-      totalRevenue: revenue,
-      totalExpenses: expenses,
+      totalRevenue: currentRevenue,
+      totalExpenses: currentExpenses,
       netProfit: netProfit,
       cashFlow: cashFlow,
-      revenueGrowth: 12.5, // TODO: Calculate actual growth
-      expenseGrowth: 8.3, // TODO: Calculate actual growth
+      revenueGrowth: revenueGrowth,
+      expenseGrowth: expenseGrowth,
     });
 
     // Calculate expense categories
     const categoryTotals = {};
-    transactions
+    currentTransactions
       .filter((t) => t.type === "expense")
       .forEach((t) => {
         categoryTotals[t.category] =
@@ -544,18 +652,49 @@ const loadFinancialData = async () => {
       .map(([category, amount]) => ({
         name: getCategoryLabel(category),
         amount,
-        percentage: expenses > 0 ? (amount / expenses) * 100 : 0,
+        percentage: currentExpenses > 0 ? (amount / currentExpenses) * 100 : 0,
         color: categoryColors[category] || "#64748b",
       }))
       .sort((a, b) => b.amount - a.amount);
 
     // Get recent transactions (last 5)
-    recentTransactions.value = transactions.slice(0, 5);
+    recentTransactions.value = currentTransactions.slice(0, 5);
 
-    console.log("Financial data loaded:", financialData);
+    // Generate chart data for the entire year
+    const yearStartDate = new Date(new Date().getFullYear(), 0, 1);
+    const yearEndDate = new Date(new Date().getFullYear() + 1, 0, 1);
+
+    const yearTransactionsQuery = query(
+      collection($firebase.firestore, "transactions"),
+      where("date", ">=", yearStartDate),
+      where("date", "<", yearEndDate),
+      where("status", "==", "completed"),
+      orderBy("date", "desc")
+    );
+
+    const yearSnapshot = await getDocs(yearTransactionsQuery);
+    const yearTransactions = yearSnapshot.docs.map((doc) => {
+      const data = doc.data();
+      return {
+        id: doc.id,
+        ...data,
+        date: data.date?.toDate ? data.date.toDate() : new Date(data.date),
+      };
+    });
+
+    chartData.value = generateChartData(yearTransactions);
+
+    console.log("Financial data loaded successfully:", {
+      revenue: currentRevenue,
+      expenses: currentExpenses,
+      expenseCategories: expenseCategories.value,
+      chartData: chartData.value,
+    });
   } catch (error) {
     console.error("Error loading financial data:", error);
     showMessage("Failed to load financial data", "error");
+  } finally {
+    loadingTransactions.value = false;
   }
 };
 
@@ -575,7 +714,13 @@ const formatDate = (date) => {
 
 const getCategoryLabel = (category) => {
   const labels = {
-    sales: "Sales",
+    // Income categories
+    sales: "Sales Revenue",
+    service: "Service Income",
+    commission: "Commission",
+    rental: "Rental Income",
+    investment: "Investment Returns",
+    // Expense categories
     materials: "Raw Materials",
     labor: "Labor Costs",
     operational: "Operational",
@@ -589,7 +734,13 @@ const getCategoryLabel = (category) => {
 
 const getTransactionIcon = (category) => {
   const icons = {
+    // Income icons
     sales: ShoppingCart,
+    service: Briefcase,
+    commission: TrendingUpIcon,
+    rental: Home,
+    investment: TrendingUp,
+    // Expense icons
     materials: Truck,
     labor: Users,
     operational: Settings,
@@ -615,10 +766,93 @@ const refreshData = () => {
   showMessage("Financial data refreshed successfully!", "success");
 };
 
-const exportData = () => {
-  // TODO: Implement export functionality
-  console.log("Exporting financial data...");
-  showMessage("Export functionality will be implemented soon", "info");
+const exportData = async () => {
+  try {
+    const { $firebase } = useNuxtApp();
+    const { startDate, endDate } = getDateRange();
+
+    // Fetch transactions for export
+    const transactionsQuery = query(
+      collection($firebase.firestore, "transactions"),
+      where("date", ">=", startDate),
+      where("date", "<", endDate),
+      orderBy("date", "desc")
+    );
+
+    const snapshot = await getDocs(transactionsQuery);
+    const transactions = snapshot.docs.map((doc) => {
+      const data = doc.data();
+      return {
+        transactionId: data.transactionId,
+        type: data.type,
+        category: getCategoryLabel(data.category),
+        description: data.description,
+        amount: data.amount,
+        date: data.date?.toDate
+          ? data.date.toDate().toISOString().split("T")[0]
+          : "",
+        status: data.status,
+        entity: data.entity || "",
+        paymentMethod: data.paymentMethod || "",
+        reference: data.reference || "",
+        notes: data.notes || "",
+      };
+    });
+
+    // Create CSV content
+    if (transactions.length === 0) {
+      showMessage("No data to export for selected period", "error");
+      return;
+    }
+
+    const headers = [
+      "Transaction ID",
+      "Type",
+      "Category",
+      "Description",
+      "Amount",
+      "Date",
+      "Status",
+      "Entity",
+      "Payment Method",
+      "Reference",
+      "Notes",
+    ];
+
+    const csvContent = [
+      headers.join(","),
+      ...transactions.map((row) =>
+        Object.values(row)
+          .map((value) =>
+            typeof value === "string" && value.includes(",")
+              ? `"${value}"`
+              : value
+          )
+          .join(",")
+      ),
+    ].join("\n");
+
+    // Download CSV file
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
+    const url = URL.createObjectURL(blob);
+    link.setAttribute("href", url);
+    link.setAttribute(
+      "download",
+      `financial-report-${selectedPeriod.value}-${
+        new Date().toISOString().split("T")[0]
+      }.csv`
+    );
+    link.style.visibility = "hidden";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    showMessage("Financial report exported successfully!", "success");
+  } catch (error) {
+    console.error("Export error:", error);
+    showMessage("Failed to export data", "error");
+  }
 };
 
 onMounted(() => {

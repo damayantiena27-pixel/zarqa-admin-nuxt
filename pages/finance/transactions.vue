@@ -17,7 +17,7 @@
         </Button>
         <Button @click="showAddTransactionModal = true">
           <Plus class="mr-2 h-4 w-4" />
-          Add Transaction
+          Add Income Transaction
         </Button>
       </div>
     </div>
@@ -57,6 +57,10 @@
               <SelectContent>
                 <SelectItem value="all">All Categories</SelectItem>
                 <SelectItem value="sales">Sales</SelectItem>
+                <SelectItem value="service">Service</SelectItem>
+                <SelectItem value="commission">Commission</SelectItem>
+                <SelectItem value="rental">Rental</SelectItem>
+                <SelectItem value="investment">Investment</SelectItem>
                 <SelectItem value="materials">Materials</SelectItem>
                 <SelectItem value="labor">Labor costs</SelectItem>
                 <SelectItem value="operational">Operational</SelectItem>
@@ -213,7 +217,9 @@
           <div
             class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"
           ></div>
-          <p class="mt-2 text-sm text-muted-foreground">Loading transactions...</p>
+          <p class="mt-2 text-sm text-muted-foreground">
+            Loading transactions...
+          </p>
         </div>
         <Table v-else>
           <TableHeader>
@@ -385,173 +391,194 @@
 
     <!-- Add/Edit Transaction Modal -->
     <Dialog v-model:open="showAddTransactionModal" :key="modalKey">
-      <DialogContent class="max-w-2xl">
+      <DialogContent class="max-w-4xl max-h-[90vh] overflow-y-auto min-w-2xl">
         <DialogHeader>
           <DialogTitle>{{
-            editingTransaction ? "Edit Transaction" : "Add New Transaction"
+            editingTransaction
+              ? "Edit Income Transaction"
+              : "Add New Income Transaction"
           }}</DialogTitle>
+          <p class="text-sm text-muted-foreground">
+            Record income transactions like sales, services, commissions, etc.
+          </p>
         </DialogHeader>
-        <form @submit.prevent="saveTransaction" class="space-y-4">
-          <!-- Loading Status -->
-          <div v-if="uploadingStatus" class="text-center py-4">
-            <div
-              class="animate-spin rounded-full h-6 w-6 border-b-2 border-black mx-auto"
-            ></div>
-            <p class="mt-2 text-sm text-muted-foreground">
-              {{ uploadingStatus }}
-            </p>
-          </div>
 
-          <div class="grid grid-cols-2 gap-4">
-            <div>
-              <Label for="type" class="mb-2">Transaction Type *</Label>
-              <Select v-model="transactionForm.type" :disabled="isLoading" required>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select type" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="income">Income</SelectItem>
-                  <SelectItem value="expense">Expense</SelectItem>
-                </SelectContent>
-              </Select>
+        <div class="max-h-[70vh] overflow-y-auto px-1">
+          <form @submit.prevent="saveTransaction" class="space-y-4">
+            <!-- Loading Status -->
+            <div v-if="uploadingStatus" class="text-center py-4">
+              <div
+                class="animate-spin rounded-full h-6 w-6 border-b-2 border-green-600 mx-auto"
+              ></div>
+              <p class="mt-2 text-sm text-muted-foreground">
+                {{ uploadingStatus }}
+              </p>
             </div>
-            <div>
-              <Label for="category" class="mb-2">Category *</Label>
-              <Select v-model="transactionForm.category" :disabled="isLoading" required>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select category" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="sales">Sales</SelectItem>
-                  <SelectItem value="materials">Raw Materials</SelectItem>
-                  <SelectItem value="labor">Labor Costs</SelectItem>
-                  <SelectItem value="operational">Operational</SelectItem>
-                  <SelectItem value="marketing">Marketing</SelectItem>
-                  <SelectItem value="utilities">Utilities</SelectItem>
-                  <SelectItem value="transportation">Transportation</SelectItem>
-                  <SelectItem value="others">Others</SelectItem>
-                </SelectContent>
-              </Select>
+
+            <div class="grid grid-cols-2 gap-4">
+              <div>
+                <Label for="category" class="mb-2">Income Category *</Label>
+                <Select
+                  v-model="transactionForm.category"
+                  :disabled="isLoading"
+                  required
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select income category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="sales">Sales Revenue</SelectItem>
+                    <SelectItem value="service">Service Income</SelectItem>
+                    <SelectItem value="commission">Commission</SelectItem>
+                    <SelectItem value="rental">Rental Income</SelectItem>
+                    <SelectItem value="investment"
+                      >Investment Returns</SelectItem
+                    >
+                    <SelectItem value="others">Other Income</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label for="amount" class="mb-2">Amount (Rp) *</Label>
+                <Input
+                  id="amount"
+                  type="number"
+                  v-model="transactionForm.amount"
+                  :disabled="isLoading"
+                  placeholder="0"
+                  required
+                />
+              </div>
             </div>
-          </div>
-          <div class="grid grid-cols-2 gap-4">
+
+            <div class="grid grid-cols-2 gap-4">
+              <div>
+                <Label for="entity" class="mb-2">Customer/Client *</Label>
+                <Input
+                  id="entity"
+                  v-model="transactionForm.entity"
+                  :disabled="isLoading"
+                  placeholder="Customer or client name"
+                  required
+                />
+              </div>
+              <div>
+                <Label for="description" class="mb-2">Description *</Label>
+                <Input
+                  id="description"
+                  v-model="transactionForm.description"
+                  :disabled="isLoading"
+                  placeholder="Brief description of income"
+                  required
+                />
+              </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-4">
+              <div>
+                <Label for="date" class="mb-2">Transaction Date *</Label>
+                <Input
+                  id="date"
+                  type="datetime-local"
+                  v-model="transactionForm.date"
+                  :disabled="isLoading"
+                  required
+                />
+              </div>
+              <div>
+                <Label for="paymentMethod" class="mb-2">Payment Method *</Label>
+                <Select
+                  v-model="transactionForm.paymentMethod"
+                  :disabled="isLoading"
+                  required
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="How was payment received?" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="cash">Cash</SelectItem>
+                    <SelectItem value="bank_transfer">Bank Transfer</SelectItem>
+                    <SelectItem value="credit_card">Credit Card</SelectItem>
+                    <SelectItem value="debit_card">Debit Card</SelectItem>
+                    <SelectItem value="check">Check</SelectItem>
+                    <SelectItem value="digital_wallet"
+                      >Digital Wallet</SelectItem
+                    >
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-4">
+              <div>
+                <Label for="status" class="mb-2">Transaction Status</Label>
+                <Select v-model="transactionForm.status" :disabled="isLoading">
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="completed">Completed</SelectItem>
+                    <SelectItem value="pending">Pending</SelectItem>
+                    <SelectItem value="cancelled">Cancelled</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label for="reference" class="mb-2">Reference Number</Label>
+                <Input
+                  id="reference"
+                  v-model="transactionForm.reference"
+                  :disabled="isLoading"
+                  placeholder="INV-2025-001, ORD-001, etc."
+                />
+              </div>
+            </div>
+
             <div>
-              <Label for="entity" class="mb-2">Vendor/Supplier/Customer *</Label>
-              <Input
-                id="entity"
-                v-model="transactionForm.entity"
+              <Label for="notes" class="mb-2">Additional Notes</Label>
+              <Textarea
+                id="notes"
+                v-model="transactionForm.notes"
                 :disabled="isLoading"
-                required
+                rows="3"
+                placeholder="Any additional information about this income transaction..."
               />
             </div>
+
             <div>
-              <Label for="description" class="mb-2">Description *</Label>
+              <Label for="receipt" class="mb-2">Receipt/Invoice</Label>
               <Input
-                id="description"
-                v-model="transactionForm.description"
+                id="receipt"
+                type="file"
+                accept="image/*,application/pdf"
                 :disabled="isLoading"
-                required
+                @change="handleFileUpload"
               />
+              <p class="text-sm text-muted-foreground mt-1">
+                Maximum file size: 5MB. Supported formats: JPG, PNG, PDF
+              </p>
             </div>
-          </div>
-          <div class="grid grid-cols-2 gap-4">
-            <div>
-              <Label for="amount" class="mb-2">Amount (Rp) *</Label>
-              <Input
-                id="amount"
-                type="number"
-                v-model="transactionForm.amount"
-                :disabled="isLoading"
-                required
-              />
-            </div>
-            <div>
-              <Label for="date" class="mb-2">Date *</Label>
-              <Input
-                id="date"
-                type="datetime-local"
-                v-model="transactionForm.date"
-                :disabled="isLoading"
-                required
-              />
-            </div>
-          </div>
-          <div class="grid grid-cols-2 gap-4">
-            <div>
-              <Label for="paymentMethod" class="mb-2">Payment Method *</Label>
-              <Select v-model="transactionForm.paymentMethod" :disabled="isLoading" required>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select payment method" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="cash">Cash</SelectItem>
-                  <SelectItem value="bank_transfer">Bank Transfer</SelectItem>
-                  <SelectItem value="credit_card">Credit Card</SelectItem>
-                  <SelectItem value="debit_card">Debit Card</SelectItem>
-                  <SelectItem value="check">Check</SelectItem>
-                  <SelectItem value="digital_wallet">Digital Wallet</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label for="status" class="mb-2">Status</Label>
-              <Select v-model="transactionForm.status" :disabled="isLoading">
-                <SelectTrigger>
-                  <SelectValue placeholder="Select status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="completed">Completed</SelectItem>
-                  <SelectItem value="pending">Pending</SelectItem>
-                  <SelectItem value="cancelled">Cancelled</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          <div>
-            <Label for="reference" class="mb-2">Reference Number</Label>
-            <Input
-              id="reference"
-              v-model="transactionForm.reference"
-              :disabled="isLoading"
-              placeholder="INV-2024-001, ORD-001, etc."
-            />
-          </div>
-          <div>
-            <Label for="notes" class="mb-2">Notes</Label>
-            <Textarea 
-              id="notes" 
-              v-model="transactionForm.notes" 
-              :disabled="isLoading"
-              rows="3" 
-            />
-          </div>
-          <div>
-            <Label for="receipt" class="mb-2">Receipt/Invoice</Label>
-            <Input
-              id="receipt"
-              type="file"
-              accept="image/*,application/pdf"
-              :disabled="isLoading"
-              @change="handleFileUpload"
-            />
-            <p class="text-sm text-muted-foreground mt-1">
-              Maximum file size: 5MB. Supported formats: JPG, PNG, PDF
-            </p>
-          </div>
-          <div class="flex justify-end space-x-2">
-            <Button
-              type="button"
-              variant="outline"
-              :disabled="isLoading"
-              @click="handleCancelTransaction"
-            >
-              Cancel
-            </Button>
-            <Button type="submit" :disabled="isLoading">
-              {{ editingTransaction ? "Update" : "Save" }} Transaction
-            </Button>
-          </div>
-        </form>
+          </form>
+        </div>
+
+        <div class="flex justify-end space-x-2 pt-4 border-t">
+          <Button
+            type="button"
+            variant="outline"
+            :disabled="isLoading"
+            @click="handleCancelTransaction"
+          >
+            Cancel
+          </Button>
+          <Button
+            type="submit"
+            :disabled="isLoading"
+            @click="saveTransaction"
+            class="bg-green-600 hover:bg-green-700"
+          >
+            {{ editingTransaction ? "Update" : "Save" }} Income Transaction
+          </Button>
+        </div>
       </DialogContent>
     </Dialog>
 
@@ -604,7 +631,7 @@
           </div>
           <div class="grid grid-cols-2 gap-4">
             <div>
-              <Label class="font-medium mb-2">Vendor/Supplier/Customer</Label>
+              <Label class="font-medium mb-2">Customer/Client</Label>
               <p>{{ selectedTransaction.entity }}</p>
             </div>
             <div>
@@ -718,6 +745,9 @@ import {
   FileText,
   Zap,
   Car,
+  Briefcase,
+  Home,
+  TrendingUpIcon,
 } from "lucide-vue-next";
 import HeadersContent from "~/components/ui/HeadersContent.vue";
 import {
@@ -765,9 +795,9 @@ const filters = reactive({
   search: "",
 });
 
-// Form State
+// Form State - Default to income
 const transactionForm = reactive({
-  type: "",
+  type: "income",
   category: "",
   entity: "",
   description: "",
@@ -991,7 +1021,11 @@ const formatTime = (date) => {
 
 const getCategoryLabel = (category) => {
   const labels = {
-    sales: "Sales",
+    sales: "Sales Revenue",
+    service: "Service Income",
+    commission: "Commission",
+    rental: "Rental Income",
+    investment: "Investment Returns",
     materials: "Materials",
     labor: "Labor",
     operational: "Operational",
@@ -1027,6 +1061,10 @@ const getStatusVariant = (status) => {
 const getTransactionIcon = (category) => {
   const icons = {
     sales: ShoppingCart,
+    service: Briefcase,
+    commission: TrendingUpIcon,
+    rental: Home,
+    investment: TrendingUp,
     materials: Truck,
     labor: Users,
     operational: Settings,
@@ -1116,7 +1154,9 @@ const deleteTransaction = async (transactionId) => {
       const { $firebase } = useNuxtApp();
       await deleteDoc(doc($firebase.firestore, "transactions", transactionId));
 
-      transactions.value = transactions.value.filter((t) => t.id !== transactionId);
+      transactions.value = transactions.value.filter(
+        (t) => t.id !== transactionId
+      );
       showMessage("Transaction deleted successfully!", "success");
     } catch (error) {
       console.error("Delete error:", error);
@@ -1151,7 +1191,6 @@ const handleFileUpload = (event) => {
 
 const validateForm = () => {
   if (
-    !transactionForm.type ||
     !transactionForm.category ||
     !transactionForm.entity ||
     !transactionForm.description ||
@@ -1207,7 +1246,7 @@ const saveTransaction = async () => {
     if (editingTransaction.value) {
       // Update existing transaction
       const transactionData = {
-        type: transactionForm.type,
+        type: "income", // Force income type
         category: transactionForm.category,
         entity: transactionForm.entity,
         description: transactionForm.description,
@@ -1240,12 +1279,12 @@ const saveTransaction = async () => {
         };
       }
 
-      showMessage("Transaction updated successfully!", "success");
+      showMessage("Income transaction updated successfully!", "success");
     } else {
       // Add new transaction
       const transactionData = {
         transactionId: transactionId,
-        type: transactionForm.type,
+        type: "income", // Force income type
         category: transactionForm.category,
         entity: transactionForm.entity,
         description: transactionForm.description,
@@ -1264,7 +1303,7 @@ const saveTransaction = async () => {
         updatedAt: serverTimestamp(),
       };
 
-      console.log("Saving new transaction data:", transactionData);
+      console.log("Saving new income transaction data:", transactionData);
 
       const docRef = await addDoc(
         collection($firebase.firestore, "transactions"),
@@ -1280,7 +1319,7 @@ const saveTransaction = async () => {
       };
 
       transactions.value.unshift(newTransaction);
-      showMessage("Transaction added successfully!", "success");
+      showMessage("Income transaction added successfully!", "success");
     }
 
     // Close modal with delay
@@ -1305,7 +1344,7 @@ const closeTransactionModal = async () => {
 
   // Reset form
   Object.assign(transactionForm, {
-    type: "",
+    type: "income",
     category: "",
     entity: "",
     description: "",
@@ -1324,7 +1363,7 @@ const closeTransactionModal = async () => {
   if (fileInput) {
     fileInput.value = "";
   }
-  
+
   modalKey.value++;
 };
 
@@ -1334,8 +1373,64 @@ const handleCancelTransaction = async () => {
 };
 
 const exportTransactions = () => {
-  // Implement export functionality
-  console.log("Exporting transactions...");
+  try {
+    // Prepare CSV data
+    const csvData = [
+      [
+        "Transaction ID",
+        "Date",
+        "Type",
+        "Category",
+        "Description",
+        "Customer/Client",
+        "Amount",
+        "Payment Method",
+        "Status",
+        "Reference",
+        "Notes",
+      ],
+    ];
+
+    filteredTransactions.value.forEach((transaction) => {
+      csvData.push([
+        transaction.transactionId,
+        formatDate(transaction.date),
+        transaction.type,
+        getCategoryLabel(transaction.category),
+        transaction.description,
+        transaction.entity,
+        transaction.amount,
+        getPaymentMethodLabel(transaction.paymentMethod),
+        transaction.status,
+        transaction.reference || "",
+        transaction.notes || "",
+      ]);
+    });
+
+    // Convert to CSV string
+    const csvContent = csvData
+      .map((row) => row.map((field) => `"${field}"`).join(","))
+      .join("\n");
+
+    // Create and download file
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
+    const url = URL.createObjectURL(blob);
+    link.setAttribute("href", url);
+    link.setAttribute(
+      "download",
+      `transactions_${new Date().toISOString().split("T")[0]}.csv`
+    );
+    link.style.visibility = "hidden";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    showMessage("Transactions exported successfully!", "success");
+  } catch (error) {
+    console.error("Export error:", error);
+    showMessage("Failed to export transactions", "error");
+  }
 };
 
 watch(showAddTransactionModal, (newVal, oldVal) => {
