@@ -457,7 +457,7 @@ import {
 } from "lucide-vue-next";
 import HeadersContent from "~/components/ui/HeadersContent.vue";
 import { collection, getDocs, query, where, orderBy } from "firebase/firestore";
-import OverviewChart from "@/components/chart/OverviewChart.vue";
+import OverviewChart from "@/components/chart/OverviewChartLine.vue";
 
 definePageMeta({
   middleware: "auth",
@@ -691,6 +691,8 @@ const loadFinancialData = async () => {
     // Get recent transactions (last 5)
     recentTransactions.value = transactions.slice(0, 5);
 
+    // Generate chart data based on selected period
+    generateChartData(transactions);
     console.log("Enhanced financial data loaded:", financialData);
   } catch (error) {
     console.error("Error loading financial data:", error);
@@ -698,6 +700,133 @@ const loadFinancialData = async () => {
   } finally {
     loadingTransactions.value = false;
   }
+};
+
+// Function to generate chart data
+const generateChartData = (transactions) => {
+  const { startDate, endDate } = getDateRange();
+
+  let labels = [];
+  let incomeData = [];
+  let expenseData = [];
+
+  if (selectedPeriod.value === "today") {
+    // Hourly data for today
+    labels = Array.from({ length: 24 }, (_, i) => `${i}:00`);
+    incomeData = Array(24).fill(0);
+    expenseData = Array(24).fill(0);
+
+    transactions.forEach((transaction) => {
+      const hour = transaction.date.getHours();
+      if (transaction.type === "income") {
+        incomeData[hour] += transaction.amount;
+      } else {
+        expenseData[hour] += transaction.amount;
+      }
+    });
+  } else if (selectedPeriod.value === "week") {
+    // Daily data for this week
+    labels = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+    incomeData = Array(7).fill(0);
+    expenseData = Array(7).fill(0);
+
+    transactions.forEach((transaction) => {
+      const dayOfWeek = transaction.date.getDay();
+      if (transaction.type === "income") {
+        incomeData[dayOfWeek] += transaction.amount;
+      } else {
+        expenseData[dayOfWeek] += transaction.amount;
+      }
+    });
+  } else if (selectedPeriod.value === "month") {
+    // Weekly data for this month
+    const weeksInMonth = Math.ceil(
+      (endDate - startDate) / (7 * 24 * 60 * 60 * 1000)
+    );
+    labels = Array.from({ length: weeksInMonth }, (_, i) => `Week ${i + 1}`);
+    incomeData = Array(weeksInMonth).fill(0);
+    expenseData = Array(weeksInMonth).fill(0);
+
+    transactions.forEach((transaction) => {
+      const weekIndex = Math.floor(
+        (transaction.date - startDate) / (7 * 24 * 60 * 60 * 1000)
+      );
+      if (weekIndex >= 0 && weekIndex < weeksInMonth) {
+        if (transaction.type === "income") {
+          incomeData[weekIndex] += transaction.amount;
+        } else {
+          expenseData[weekIndex] += transaction.amount;
+        }
+      }
+    });
+  } else {
+    // Monthly data for quarter/year
+    const months = [
+      "Jan",
+      "Feb",
+      "Mar",
+      "Apr",
+      "May",
+      "Jun",
+      "Jul",
+      "Aug",
+      "Sep",
+      "Oct",
+      "Nov",
+      "Dec",
+    ];
+
+    if (selectedPeriod.value === "quarter") {
+      const quarterStart = Math.floor(new Date().getMonth() / 3) * 3;
+      labels = months.slice(quarterStart, quarterStart + 3);
+      incomeData = Array(3).fill(0);
+      expenseData = Array(3).fill(0);
+
+      transactions.forEach((transaction) => {
+        const monthIndex = transaction.date.getMonth() - quarterStart;
+        if (monthIndex >= 0 && monthIndex < 3) {
+          if (transaction.type === "income") {
+            incomeData[monthIndex] += transaction.amount;
+          } else {
+            expenseData[monthIndex] += transaction.amount;
+          }
+        }
+      });
+    } else {
+      // Year view - all 12 months
+      labels = months;
+      incomeData = Array(12).fill(0);
+      expenseData = Array(12).fill(0);
+
+      transactions.forEach((transaction) => {
+        const monthIndex = transaction.date.getMonth();
+        if (transaction.type === "income") {
+          incomeData[monthIndex] += transaction.amount;
+        } else {
+          expenseData[monthIndex] += transaction.amount;
+        }
+      });
+    }
+  }
+
+  // Update chart data
+  chartData.value = {
+    labels,
+    datasets: [
+      {
+        label: "Income",
+        data: incomeData,
+        backgroundColor: "#22c55e",
+        borderColor: "#22c55e",
+      },
+      {
+        label: "Expenses",
+        data: expenseData,
+        backgroundColor: "#ef4444",
+        borderColor: "#ef4444",
+      },
+    ],
+  };
 };
 
 // Helper methods
