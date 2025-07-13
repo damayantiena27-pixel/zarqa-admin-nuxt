@@ -236,7 +236,10 @@
           <CardTitle>Recent Transactions</CardTitle>
           <CardDescription>Latest financial activities</CardDescription>
         </div>
-        <Button variant="outline" @click="$router.push('/admin/transaction')">
+        <Button
+          variant="outline"
+          @click="$router.push('/finance/transactions')"
+        >
           View All
           <ArrowRight class="ml-2 h-4 w-4" />
         </Button>
