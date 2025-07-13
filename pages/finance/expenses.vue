@@ -95,7 +95,7 @@
     </Card>
 
     <!-- Enhanced Expense Summary Cards -->
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
       <Card>
         <CardHeader
           class="flex flex-row items-center justify-between space-y-0"
@@ -166,7 +166,7 @@
     </div>
 
     <!-- Expense Aging Analysis -->
-    <Card class="mb-6">
+    <Card class="mb-8">
       <CardHeader>
         <CardTitle>Expense Aging Analysis</CardTitle>
         <CardDescription>Pending expenses by time period</CardDescription>

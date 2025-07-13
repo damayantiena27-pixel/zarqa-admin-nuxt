@@ -112,7 +112,7 @@
     </Card>
 
     <!-- Enhanced Transaction Summary Cards -->
-    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
       <Card>
         <CardHeader
           class="flex flex-row items-center justify-between space-y-0"
@@ -192,7 +192,7 @@
     </div>
 
     <!-- Business Metrics -->
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-8">
       <Card>
         <CardHeader>
           <CardTitle>Financial Health</CardTitle>

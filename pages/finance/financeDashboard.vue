@@ -182,7 +182,7 @@
     </div>
 
     <!-- Additional Business Metrics -->
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-8">
       <!-- Operating Metrics -->
       <Card>
         <CardHeader>
@@ -265,7 +265,7 @@
     </div>
 
     <!-- Charts Section -->
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-8">
       <!-- Income vs Expenses Chart -->
       <Card>
         <CardHeader>
