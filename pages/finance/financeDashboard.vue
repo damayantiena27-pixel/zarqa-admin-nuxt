@@ -67,30 +67,30 @@
       </div>
     </div>
 
-    <!-- Financial Overview Cards -->
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-      <!-- Total Revenue -->
+    <!-- Financial Overview Cards - IMPROVED -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+      <!-- Total Income (Revenue) -->
       <Card>
         <CardHeader
           class="flex flex-row items-center justify-between space-y-0"
         >
-          <CardTitle class="text-sm font-medium">Total Revenue</CardTitle>
+          <CardTitle class="text-sm font-medium">Total Income</CardTitle>
           <TrendingUp class="text-green-500" />
         </CardHeader>
         <CardContent>
           <div class="text-xl font-bold text-green-600">
-            Rp {{ formatPrice(financialData.totalRevenue) }}
+            Rp {{ formatPrice(financialData.totalIncome) }}
           </div>
           <p class="text-xs text-muted-foreground">
             <span
               :class="
-                financialData.revenueGrowth >= 0
+                financialData.incomeGrowth >= 0
                   ? 'text-green-600'
                   : 'text-red-600'
               "
             >
-              {{ financialData.revenueGrowth >= 0 ? "+" : ""
-              }}{{ financialData.revenueGrowth.toFixed(1) }}%
+              {{ financialData.incomeGrowth >= 0 ? "+" : ""
+              }}{{ financialData.incomeGrowth.toFixed(1) }}%
             </span>
             from last period
           </p>
@@ -144,9 +144,9 @@
           </div>
           <p class="text-xs text-muted-foreground">
             {{
-              financialData.totalRevenue > 0
+              financialData.totalIncome > 0
                 ? (
-                    (financialData.netProfit / financialData.totalRevenue) *
+                    (financialData.netProfit / financialData.totalIncome) *
                     100
                   ).toFixed(1)
                 : 0
@@ -155,7 +155,7 @@
         </CardContent>
       </Card>
 
-      <!-- Cash Flow -->
+      <!-- Actual Cash Flow -->
       <Card>
         <CardHeader
           class="flex flex-row items-center justify-between space-y-0"
@@ -167,22 +167,109 @@
           <div
             class="text-xl font-bold"
             :class="
-              financialData.cashFlow >= 0 ? 'text-green-600' : 'text-red-600'
+              financialData.actualCashFlow >= 0
+                ? 'text-green-600'
+                : 'text-red-600'
             "
           >
-            Rp {{ formatPrice(financialData.cashFlow) }}
+            Rp {{ formatPrice(financialData.actualCashFlow) }}
           </div>
-          <p class="text-xs text-muted-foreground">Current cash position</p>
+          <p class="text-xs text-muted-foreground">
+            {{ formatPaidVsPending() }}
+          </p>
+        </CardContent>
+      </Card>
+    </div>
+
+    <!-- Additional Business Metrics -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">
+      <!-- Operating Metrics -->
+      <Card>
+        <CardHeader>
+          <CardTitle>Operating Metrics</CardTitle>
+        </CardHeader>
+        <CardContent class="space-y-3">
+          <div class="flex justify-between">
+            <span class="text-sm text-muted-foreground">Gross Margin</span>
+            <span class="font-medium">{{ getGrossMargin() }}%</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-sm text-muted-foreground">Operating Ratio</span>
+            <span class="font-medium">{{ getOperatingRatio() }}%</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-sm text-muted-foreground">Burn Rate</span>
+            <span class="font-medium"
+              >Rp {{ formatPrice(getBurnRate()) }}/month</span
+            >
+          </div>
+        </CardContent>
+      </Card>
+
+      <!-- Pending Items -->
+      <Card>
+        <CardHeader>
+          <CardTitle>Pending Items</CardTitle>
+        </CardHeader>
+        <CardContent class="space-y-3">
+          <div class="flex justify-between">
+            <span class="text-sm text-muted-foreground">Pending Expenses</span>
+            <Badge variant="secondary">{{
+              financialData.pendingExpenses
+            }}</Badge>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-sm text-muted-foreground">Pending Amount</span>
+            <span class="font-medium text-orange-600"
+              >Rp {{ formatPrice(financialData.pendingAmount) }}</span
+            >
+          </div>
+          <div class="flex justify-between">
+            <span class="text-sm text-muted-foreground">Unpaid Invoices</span>
+            <Badge variant="outline">{{ financialData.unpaidInvoices }}</Badge>
+          </div>
+        </CardContent>
+      </Card>
+
+      <!-- Quick Actions -->
+      <Card>
+        <CardHeader>
+          <CardTitle>Quick Actions</CardTitle>
+        </CardHeader>
+        <CardContent class="space-y-2">
+          <Button
+            class="w-full"
+            @click="$router.push('/admin/finance/transactions')"
+          >
+            <Plus class="mr-2 h-4 w-4" />
+            Add Income
+          </Button>
+          <Button
+            variant="outline"
+            class="w-full"
+            @click="$router.push('/admin/finance/expenses')"
+          >
+            <FileText class="mr-2 h-4 w-4" />
+            Submit Expense
+          </Button>
+          <Button
+            variant="outline"
+            class="w-full"
+            @click="$router.push('/admin/finance/approvals')"
+          >
+            <CheckCircle class="mr-2 h-4 w-4" />
+            Review Approvals
+          </Button>
         </CardContent>
       </Card>
     </div>
 
     <!-- Charts Section -->
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-      <!-- Revenue vs Expenses Chart -->
+      <!-- Income vs Expenses Chart -->
       <Card>
         <CardHeader>
-          <CardTitle>Revenue vs Expenses</CardTitle>
+          <CardTitle>Income vs Expenses Trend</CardTitle>
           <CardDescription>Monthly comparison</CardDescription>
         </CardHeader>
         <CardContent>
@@ -192,53 +279,62 @@
         </CardContent>
       </Card>
 
-      <!-- Expense Categories -->
+      <!-- Cash Flow Analysis -->
       <Card>
         <CardHeader>
-          <CardTitle>Expense Categories</CardTitle>
-          <CardDescription>Breakdown by category</CardDescription>
+          <CardTitle>Cash Flow Analysis</CardTitle>
+          <CardDescription>Actual vs projected cash flow</CardDescription>
         </CardHeader>
         <CardContent>
-          <div v-if="expenseCategories.length === 0" class="text-center py-8">
-            <p class="text-muted-foreground">No expense data available</p>
-          </div>
-          <div v-else class="space-y-4">
+          <div class="space-y-4">
             <div
-              v-for="category in expenseCategories"
-              :key="category.name"
-              class="flex items-center justify-between"
+              class="flex justify-between items-center p-3 bg-green-50 rounded"
             >
-              <div class="flex items-center space-x-3">
-                <div
-                  class="w-4 h-4 rounded"
-                  :style="{ backgroundColor: category.color }"
-                ></div>
-                <span class="text-sm font-medium">{{ category.name }}</span>
-              </div>
-              <div class="text-right">
-                <div class="text-sm font-bold">
-                  Rp {{ formatPrice(category.amount) }}
-                </div>
-                <div class="text-xs text-muted-foreground">
-                  {{ category.percentage.toFixed(1) }}%
-                </div>
-              </div>
+              <span class="text-sm font-medium">Cash Inflow</span>
+              <span class="font-bold text-green-600"
+                >Rp {{ formatPrice(financialData.cashInflow) }}</span
+              >
+            </div>
+            <div
+              class="flex justify-between items-center p-3 bg-red-50 rounded"
+            >
+              <span class="text-sm font-medium">Cash Outflow</span>
+              <span class="font-bold text-red-600"
+                >Rp {{ formatPrice(financialData.cashOutflow) }}</span
+              >
+            </div>
+            <div
+              class="flex justify-between items-center p-3 bg-blue-50 rounded"
+            >
+              <span class="text-sm font-medium">Net Cash Flow</span>
+              <span
+                class="font-bold"
+                :class="
+                  financialData.actualCashFlow >= 0
+                    ? 'text-green-600'
+                    : 'text-red-600'
+                "
+              >
+                Rp {{ formatPrice(financialData.actualCashFlow) }}
+              </span>
             </div>
           </div>
         </CardContent>
       </Card>
     </div>
 
-    <!-- Recent Transactions -->
+    <!-- Recent Transactions with better categorization -->
     <Card class="mb-4">
       <CardHeader class="flex flex-row items-center justify-between">
         <div>
-          <CardTitle>Recent Transactions</CardTitle>
-          <CardDescription>Latest financial activities</CardDescription>
+          <CardTitle>Recent Financial Activities</CardTitle>
+          <CardDescription
+            >Latest income and expense transactions</CardDescription
+          >
         </div>
         <Button
           variant="outline"
-          @click="$router.push('/finance/transactions')"
+          @click="$router.push('/admin/finance/transactions')"
         >
           View All
           <ArrowRight class="ml-2 h-4 w-4" />
@@ -263,7 +359,7 @@
           <div
             v-for="transaction in recentTransactions"
             :key="transaction.id"
-            class="flex items-center justify-between p-4 border rounded-lg"
+            class="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50"
           >
             <div class="flex items-center space-x-4">
               <div
@@ -286,6 +382,7 @@
                 <div class="font-medium">{{ transaction.description }}</div>
                 <div class="text-sm text-muted-foreground">
                   {{ getCategoryLabel(transaction.category) }} •
+                  {{ transaction.entity }} •
                   {{ formatDate(transaction.date) }}
                 </div>
               </div>
@@ -303,9 +400,8 @@
                 {{ formatPrice(transaction.amount) }}
               </div>
               <Badge
-                :variant="
-                  transaction.status === 'completed' ? 'default' : 'secondary'
-                "
+                :variant="getStatusVariant(transaction.status)"
+                class="text-xs"
               >
                 {{ transaction.status }}
               </Badge>
@@ -318,7 +414,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from "vue";
+import { ref, reactive, computed, onMounted } from "vue";
 import {
   Card,
   CardContent,
@@ -345,6 +441,9 @@ import {
   Download,
   RefreshCw,
   ArrowRight,
+  Plus,
+  FileText,
+  CheckCircle,
   ShoppingCart,
   Truck,
   Users,
@@ -352,7 +451,6 @@ import {
   Smartphone,
   Zap,
   Car,
-  FileText,
   Briefcase,
   Home,
   TrendingUpIcon,
@@ -375,16 +473,33 @@ const message = ref("");
 const messageType = ref("");
 const loadingTransactions = ref(false);
 
+// Enhanced financial data structure
 const financialData = reactive({
-  totalRevenue: 0,
+  // Basic metrics
+  totalIncome: 0,
   totalExpenses: 0,
   netProfit: 0,
-  cashFlow: 0,
-  revenueGrowth: 0,
+
+  // Enhanced cash flow metrics
+  actualCashFlow: 0,
+  cashInflow: 0,
+  cashOutflow: 0,
+
+  // Growth metrics
+  incomeGrowth: 0,
   expenseGrowth: 0,
+
+  // Pending items
+  pendingExpenses: 0,
+  pendingAmount: 0,
+  unpaidInvoices: 0,
+
+  // Business metrics
+  grossMargin: 0,
+  operatingRatio: 0,
+  burnRate: 0,
 });
 
-const expenseCategories = ref([]);
 const recentTransactions = ref([]);
 const chartData = ref({
   labels: [
@@ -403,7 +518,7 @@ const chartData = ref({
   ],
   datasets: [
     {
-      label: "Revenue",
+      label: "Income",
       data: Array(12).fill(0),
       backgroundColor: "#22c55e",
       borderRadius: 4,
@@ -418,6 +533,38 @@ const chartData = ref({
     },
   ],
 });
+
+// Enhanced computed methods
+const getGrossMargin = () => {
+  if (financialData.totalIncome === 0) return "0.0";
+  return ((financialData.netProfit / financialData.totalIncome) * 100).toFixed(
+    1
+  );
+};
+
+const getOperatingRatio = () => {
+  if (financialData.totalIncome === 0) return "0.0";
+  return (
+    (financialData.totalExpenses / financialData.totalIncome) *
+    100
+  ).toFixed(1);
+};
+
+const getBurnRate = () => {
+  // Calculate monthly average expenses
+  return financialData.totalExpenses / 1; // Assuming current period is 1 month
+};
+
+const formatPaidVsPending = () => {
+  const paidPercentage =
+    financialData.totalExpenses > 0
+      ? (
+          (financialData.cashOutflow / financialData.totalExpenses) *
+          100
+        ).toFixed(0)
+      : 100;
+  return `${paidPercentage}% paid`;
+};
 
 // Helper function to get date range based on selected period
 const getDateRange = () => {
@@ -460,9 +607,8 @@ const getDateRange = () => {
       if (customDateRange.start && customDateRange.end) {
         startDate = new Date(customDateRange.start);
         endDate = new Date(customDateRange.end);
-        endDate.setDate(endDate.getDate() + 1); // Include end date
+        endDate.setDate(endDate.getDate() + 1);
       } else {
-        // Default to current month if custom dates not set
         startDate = new Date(now.getFullYear(), now.getMonth(), 1);
         endDate = new Date(now.getFullYear(), now.getMonth() + 1, 1);
       }
@@ -475,112 +621,24 @@ const getDateRange = () => {
   return { startDate, endDate };
 };
 
-// Function to get previous period date range for growth calculation
-const getPreviousPeriodRange = () => {
-  const { startDate, endDate } = getDateRange();
-  const periodLength = endDate.getTime() - startDate.getTime();
-
-  const prevEndDate = new Date(startDate.getTime());
-  const prevStartDate = new Date(startDate.getTime() - periodLength);
-
-  return { startDate: prevStartDate, endDate: prevEndDate };
-};
-
-// Function to generate monthly chart data
-const generateChartData = (transactions) => {
-  const monthlyData = {
-    revenue: Array(12).fill(0),
-    expenses: Array(12).fill(0),
-  };
-
-  const currentYear = new Date().getFullYear();
-
-  transactions.forEach((transaction) => {
-    const transactionDate = transaction.date;
-    if (transactionDate.getFullYear() === currentYear) {
-      const month = transactionDate.getMonth();
-
-      if (transaction.type === "income") {
-        monthlyData.revenue[month] += transaction.amount;
-      } else if (transaction.type === "expense") {
-        monthlyData.expenses[month] += transaction.amount;
-      }
-    }
-  });
-
-  return {
-    labels: [
-      "Jan",
-      "Feb",
-      "Mar",
-      "Apr",
-      "May",
-      "Jun",
-      "Jul",
-      "Aug",
-      "Sep",
-      "Oct",
-      "Nov",
-      "Dec",
-    ],
-    datasets: [
-      {
-        label: "Revenue",
-        data: monthlyData.revenue,
-        backgroundColor: "#22c55e",
-        borderRadius: 4,
-        borderSkipped: false,
-      },
-      {
-        label: "Expenses",
-        data: monthlyData.expenses,
-        backgroundColor: "#ef4444",
-        borderRadius: 4,
-        borderSkipped: false,
-      },
-    ],
-  };
-};
-
-// Function to fetch financial data from Firestore
+// Enhanced function to fetch financial data
 const loadFinancialData = async () => {
   try {
     loadingTransactions.value = true;
     const { $firebase } = useNuxtApp();
     const { startDate, endDate } = getDateRange();
-    const { startDate: prevStartDate, endDate: prevEndDate } =
-      getPreviousPeriodRange();
 
-    // Fetch current period transactions
-    const currentTransactionsQuery = query(
+    // Fetch completed transactions for accurate cash flow
+    const transactionsQuery = query(
       collection($firebase.firestore, "transactions"),
       where("date", ">=", startDate),
       where("date", "<", endDate),
-      where("status", "==", "completed"), // Only completed transactions
-      orderBy("date", "desc")
-    );
-
-    const currentSnapshot = await getDocs(currentTransactionsQuery);
-    const currentTransactions = currentSnapshot.docs.map((doc) => {
-      const data = doc.data();
-      return {
-        id: doc.id,
-        ...data,
-        date: data.date?.toDate ? data.date.toDate() : new Date(data.date),
-      };
-    });
-
-    // Fetch previous period transactions for growth calculation
-    const prevTransactionsQuery = query(
-      collection($firebase.firestore, "transactions"),
-      where("date", ">=", prevStartDate),
-      where("date", "<", prevEndDate),
       where("status", "==", "completed"),
       orderBy("date", "desc")
     );
 
-    const prevSnapshot = await getDocs(prevTransactionsQuery);
-    const prevTransactions = prevSnapshot.docs.map((doc) => {
+    const transactionsSnapshot = await getDocs(transactionsQuery);
+    const transactions = transactionsSnapshot.docs.map((doc) => {
       const data = doc.data();
       return {
         id: doc.id,
@@ -589,110 +647,51 @@ const loadFinancialData = async () => {
       };
     });
 
-    // Calculate current period metrics - ALL INCOME for revenue
-    const currentRevenue = currentTransactions
-      .filter((t) => t.type === "income")
-      .reduce((sum, t) => sum + t.amount, 0);
+    // Fetch pending expenses
+    const pendingExpensesQuery = query(
+      collection($firebase.firestore, "expenses"),
+      where("status", "in", ["pending", "approved"])
+    );
 
-    const currentExpenses = currentTransactions
-      .filter((t) => t.type === "expense")
-      .reduce((sum, t) => sum + t.amount, 0);
-
-    // Calculate previous period metrics - ALL INCOME for revenue
-    const prevRevenue = prevTransactions
-      .filter((t) => t.type === "income")
-      .reduce((sum, t) => sum + t.amount, 0);
-
-    const prevExpenses = prevTransactions
-      .filter((t) => t.type === "expense")
-      .reduce((sum, t) => sum + t.amount, 0);
-
-    // Calculate growth percentages
-    const revenueGrowth =
-      prevRevenue > 0
-        ? ((currentRevenue - prevRevenue) / prevRevenue) * 100
-        : 0;
-
-    const expenseGrowth =
-      prevExpenses > 0
-        ? ((currentExpenses - prevExpenses) / prevExpenses) * 100
-        : 0;
+    const pendingSnapshot = await getDocs(pendingExpensesQuery);
+    const pendingExpenses = pendingSnapshot.docs.map((doc) => doc.data());
 
     // Calculate metrics
-    const netProfit = currentRevenue - currentExpenses;
-    const cashFlow = currentRevenue - currentExpenses; // Same as net profit for simplicity
+    const income = transactions.filter((t) => t.type === "income");
+    const expenses = transactions.filter((t) => t.type === "expense");
+
+    const totalIncome = income.reduce((sum, t) => sum + t.amount, 0);
+    const totalExpenses = expenses.reduce((sum, t) => sum + t.amount, 0);
+    const totalPendingAmount = pendingExpenses.reduce(
+      (sum, e) => sum + e.amount,
+      0
+    );
+
+    // Calculate actual cash flow (only completed/paid transactions)
+    const cashInflow = totalIncome; // All income is considered cash inflow
+    const cashOutflow = totalExpenses; // Only paid expenses are cash outflow
+    const actualCashFlow = cashInflow - cashOutflow;
 
     // Update financial data
     Object.assign(financialData, {
-      totalRevenue: currentRevenue,
-      totalExpenses: currentExpenses,
-      netProfit: netProfit,
-      cashFlow: cashFlow,
-      revenueGrowth: revenueGrowth,
-      expenseGrowth: expenseGrowth,
+      totalIncome,
+      totalExpenses,
+      netProfit: totalIncome - totalExpenses,
+      actualCashFlow,
+      cashInflow,
+      cashOutflow,
+      pendingExpenses: pendingExpenses.length,
+      pendingAmount: totalPendingAmount,
+      unpaidInvoices: income.filter((t) => t.status === "pending").length,
+      // Add growth calculation logic here based on previous period
+      incomeGrowth: 0, // Calculate vs previous period
+      expenseGrowth: 0, // Calculate vs previous period
     });
-
-    // Calculate expense categories
-    const categoryTotals = {};
-    currentTransactions
-      .filter((t) => t.type === "expense")
-      .forEach((t) => {
-        categoryTotals[t.category] =
-          (categoryTotals[t.category] || 0) + t.amount;
-      });
-
-    const categoryColors = {
-      materials: "#ef4444",
-      labor: "#f97316",
-      operational: "#eab308",
-      marketing: "#22c55e",
-      utilities: "#6366f1",
-      transportation: "#8b5cf6",
-      others: "#64748b",
-    };
-
-    expenseCategories.value = Object.entries(categoryTotals)
-      .map(([category, amount]) => ({
-        name: getCategoryLabel(category),
-        amount,
-        percentage: currentExpenses > 0 ? (amount / currentExpenses) * 100 : 0,
-        color: categoryColors[category] || "#64748b",
-      }))
-      .sort((a, b) => b.amount - a.amount);
 
     // Get recent transactions (last 5)
-    recentTransactions.value = currentTransactions.slice(0, 5);
+    recentTransactions.value = transactions.slice(0, 5);
 
-    // Generate chart data for the entire year
-    const yearStartDate = new Date(new Date().getFullYear(), 0, 1);
-    const yearEndDate = new Date(new Date().getFullYear() + 1, 0, 1);
-
-    const yearTransactionsQuery = query(
-      collection($firebase.firestore, "transactions"),
-      where("date", ">=", yearStartDate),
-      where("date", "<", yearEndDate),
-      where("status", "==", "completed"),
-      orderBy("date", "desc")
-    );
-
-    const yearSnapshot = await getDocs(yearTransactionsQuery);
-    const yearTransactions = yearSnapshot.docs.map((doc) => {
-      const data = doc.data();
-      return {
-        id: doc.id,
-        ...data,
-        date: data.date?.toDate ? data.date.toDate() : new Date(data.date),
-      };
-    });
-
-    chartData.value = generateChartData(yearTransactions);
-
-    console.log("Financial data loaded successfully:", {
-      revenue: currentRevenue,
-      expenses: currentExpenses,
-      expenseCategories: expenseCategories.value,
-      chartData: chartData.value,
-    });
+    console.log("Enhanced financial data loaded:", financialData);
   } catch (error) {
     console.error("Error loading financial data:", error);
     showMessage("Failed to load financial data", "error");
@@ -701,7 +700,7 @@ const loadFinancialData = async () => {
   }
 };
 
-// Methods
+// Helper methods
 const formatPrice = (price) => {
   if (!price) return "0";
   return new Intl.NumberFormat("id-ID").format(price);
@@ -755,6 +754,15 @@ const getTransactionIcon = (category) => {
   return icons[category] || FileText;
 };
 
+const getStatusVariant = (status) => {
+  const variants = {
+    completed: "default",
+    pending: "secondary",
+    cancelled: "destructive",
+  };
+  return variants[status] || "secondary";
+};
+
 const showMessage = (msg, type) => {
   message.value = msg;
   messageType.value = type;
@@ -774,7 +782,7 @@ const exportData = async () => {
     const { $firebase } = useNuxtApp();
     const { startDate, endDate } = getDateRange();
 
-    // Fetch transactions for export
+    // Fetch all transactions for export
     const transactionsQuery = query(
       collection($firebase.firestore, "transactions"),
       where("date", ">=", startDate),
@@ -802,7 +810,6 @@ const exportData = async () => {
       };
     });
 
-    // Create CSV content
     if (transactions.length === 0) {
       showMessage("No data to export for selected period", "error");
       return;
@@ -835,7 +842,6 @@ const exportData = async () => {
       ),
     ].join("\n");
 
-    // Download CSV file
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
     const link = document.createElement("a");
     const url = URL.createObjectURL(blob);
@@ -859,7 +865,7 @@ const exportData = async () => {
 };
 
 onMounted(() => {
-  console.log("Loading finance dashboard...");
+  console.log("Loading enhanced finance dashboard...");
   loadFinancialData();
 });
 </script>
