@@ -111,13 +111,13 @@
       </CardContent>
     </Card>
 
-    <!-- Transaction Summary Cards -->
+    <!-- Enhanced Transaction Summary Cards -->
     <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
       <Card>
         <CardHeader
           class="flex flex-row items-center justify-between space-y-0"
         >
-          <CardTitle class="text-sm font-medium"> Total Income </CardTitle>
+          <CardTitle class="text-sm font-medium">Total Income</CardTitle>
           <TrendingUp class="text-green-500" />
         </CardHeader>
         <CardContent>
@@ -125,7 +125,7 @@
             Rp {{ formatPrice(transactionSummary.totalIncome) }}
           </div>
           <p class="text-xs text-muted-foreground">
-            {{ transactionSummary.incomeCount }} transactions
+            {{ transactionSummary.incomeCount }} completed transactions
           </p>
         </CardContent>
       </Card>
@@ -144,7 +144,7 @@
             Rp {{ formatPrice(transactionSummary.totalExpenses) }}
           </div>
           <p class="text-xs text-muted-foreground">
-            {{ transactionSummary.expenseCount }} transactions
+            {{ transactionSummary.expenseCount }} completed transactions
           </p>
         </CardContent>
       </Card>
@@ -153,21 +153,23 @@
         <CardHeader
           class="flex flex-row items-center justify-between space-y-0"
         >
-          <CardTitle class="text-sm font-medium"> Net Flow </CardTitle>
-          <DollarSign />
+          <CardTitle class="text-sm font-medium">Actual Cash Flow</CardTitle>
+          <Wallet />
         </CardHeader>
         <CardContent>
           <div
             class="text-xl font-bold"
             :class="
-              transactionSummary.netFlow >= 0
+              transactionSummary.actualCashFlow >= 0
                 ? 'text-green-600'
                 : 'text-red-600'
             "
           >
-            Rp {{ formatPrice(transactionSummary.netFlow) }}
+            Rp {{ formatPrice(transactionSummary.actualCashFlow) }}
           </div>
-          <p class="text-xs text-muted-foreground">Current period</p>
+          <p class="text-xs text-muted-foreground">
+            {{ getCompletionRate() }}% transactions completed
+          </p>
         </CardContent>
       </Card>
 
@@ -175,14 +177,105 @@
         <CardHeader
           class="flex flex-row items-center justify-between space-y-0"
         >
-          <CardTitle class="text-sm font-medium"> Pending </CardTitle>
+          <CardTitle class="text-sm font-medium">Pending</CardTitle>
           <Clock />
         </CardHeader>
         <CardContent>
           <div class="text-xl font-bold text-orange-600">
             {{ transactionSummary.pendingCount }}
           </div>
-          <p class="text-xs text-muted-foreground">Awaiting completion</p>
+          <p class="text-xs text-muted-foreground">
+            Rp {{ formatPrice(transactionSummary.pendingValue) }} pending
+          </p>
+        </CardContent>
+      </Card>
+    </div>
+
+    <!-- Business Metrics -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+      <Card>
+        <CardHeader>
+          <CardTitle>Financial Health</CardTitle>
+        </CardHeader>
+        <CardContent class="space-y-3">
+          <div class="flex justify-between">
+            <span class="text-sm text-muted-foreground">Net Profit</span>
+            <span
+              class="font-medium"
+              :class="
+                transactionSummary.netProfit >= 0
+                  ? 'text-green-600'
+                  : 'text-red-600'
+              "
+            >
+              Rp {{ formatPrice(transactionSummary.netProfit) }}
+            </span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-sm text-muted-foreground">Profit Margin</span>
+            <span class="font-medium">{{ getProfitMargin() }}%</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-sm text-muted-foreground">Operating Ratio</span>
+            <span class="font-medium">{{ getOperatingRatio() }}%</span>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Cash Flow Status</CardTitle>
+        </CardHeader>
+        <CardContent class="space-y-3">
+          <div class="flex justify-between">
+            <span class="text-sm text-muted-foreground">Cash Inflow</span>
+            <span class="font-medium text-green-600">
+              Rp {{ formatPrice(transactionSummary.cashInflow) }}
+            </span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-sm text-muted-foreground">Cash Outflow</span>
+            <span class="font-medium text-red-600">
+              Rp {{ formatPrice(transactionSummary.cashOutflow) }}
+            </span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-sm text-muted-foreground">Net Cash Flow</span>
+            <span
+              class="font-medium"
+              :class="
+                transactionSummary.actualCashFlow >= 0
+                  ? 'text-green-600'
+                  : 'text-red-600'
+              "
+            >
+              Rp {{ formatPrice(transactionSummary.actualCashFlow) }}
+            </span>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Transaction Stats</CardTitle>
+        </CardHeader>
+        <CardContent class="space-y-3">
+          <div class="flex justify-between">
+            <span class="text-sm text-muted-foreground"
+              >Total Transactions</span
+            >
+            <span class="font-medium">{{ filteredTransactions.length }}</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-sm text-muted-foreground">Avg Transaction</span>
+            <span class="font-medium">
+              Rp {{ formatPrice(getAverageTransactionValue()) }}
+            </span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-sm text-muted-foreground">Success Rate</span>
+            <span class="font-medium">{{ getSuccessRate() }}%</span>
+          </div>
         </CardContent>
       </Card>
     </div>
@@ -730,7 +823,7 @@ import {
   Trash2,
   TrendingUp,
   TrendingDown,
-  DollarSign,
+  Wallet,
   Clock,
   ChevronLeft,
   ChevronRight,
@@ -844,7 +937,6 @@ const uploadToCloudinary = async (file) => {
     }
 
     const data = await response.json();
-
     if (data.error) {
       throw new Error(data.error.message);
     }
@@ -872,7 +964,6 @@ const generateTransactionId = async () => {
     );
 
     const querySnapshot = await getDocs(transactionsQuery);
-
     let nextNumber = 1;
 
     if (!querySnapshot.empty) {
@@ -905,7 +996,6 @@ const fetchTransactions = async () => {
     );
 
     const querySnapshot = await getDocs(transactionsQuery);
-
     transactions.value = querySnapshot.docs.map((doc) => {
       const data = doc.data();
       return {
@@ -934,22 +1024,27 @@ const filteredTransactions = computed(() => {
   if (filters.type !== "all") {
     filtered = filtered.filter((t) => t.type === filters.type);
   }
+
   if (filters.category !== "all") {
     filtered = filtered.filter((t) => t.category === filters.category);
   }
+
   if (filters.status !== "all") {
     filtered = filtered.filter((t) => t.status === filters.status);
   }
+
   if (filters.dateFrom) {
     filtered = filtered.filter(
       (t) => new Date(t.date) >= new Date(filters.dateFrom)
     );
   }
+
   if (filters.dateTo) {
     filtered = filtered.filter(
       (t) => new Date(t.date) <= new Date(filters.dateTo)
     );
   }
+
   if (filters.search) {
     const search = filters.search.toLowerCase();
     filtered = filtered.filter(
@@ -976,27 +1071,89 @@ const paginatedTransactions = computed(() => {
   return filteredTransactions.value.slice(start, end);
 });
 
+// Enhanced transaction summary
 const transactionSummary = computed(() => {
-  const income = filteredTransactions.value.filter((t) => t.type === "income");
-  const expenses = filteredTransactions.value.filter(
-    (t) => t.type === "expense"
+  // Only completed transactions for accurate cash flow
+  const completedTransactions = filteredTransactions.value.filter(
+    (t) => t.status === "completed"
   );
-  const pending = filteredTransactions.value.filter(
+  const pendingTransactions = filteredTransactions.value.filter(
     (t) => t.status === "pending"
   );
 
+  const income = completedTransactions.filter((t) => t.type === "income");
+  const expenses = completedTransactions.filter((t) => t.type === "expense");
+
   const totalIncome = income.reduce((sum, t) => sum + t.amount, 0);
   const totalExpenses = expenses.reduce((sum, t) => sum + t.amount, 0);
+  const pendingValue = pendingTransactions.reduce(
+    (sum, t) => sum + t.amount,
+    0
+  );
+
+  // Actual cash flow = only completed transactions
+  const actualCashFlow = totalIncome - totalExpenses;
+  const netProfit = totalIncome - totalExpenses; // Same as actual cash flow for completed transactions
 
   return {
     totalIncome,
     totalExpenses,
-    netFlow: totalIncome - totalExpenses,
+    netProfit,
+    actualCashFlow,
+    cashInflow: totalIncome, // Completed income transactions
+    cashOutflow: totalExpenses, // Completed expense transactions
     incomeCount: income.length,
     expenseCount: expenses.length,
-    pendingCount: pending.length,
+    pendingCount: pendingTransactions.length,
+    pendingValue,
   };
 });
+
+// Business metrics methods
+const getProfitMargin = () => {
+  if (transactionSummary.value.totalIncome === 0) return "0.0";
+  return (
+    (transactionSummary.value.netProfit /
+      transactionSummary.value.totalIncome) *
+    100
+  ).toFixed(1);
+};
+
+const getOperatingRatio = () => {
+  if (transactionSummary.value.totalIncome === 0) return "0.0";
+  return (
+    (transactionSummary.value.totalExpenses /
+      transactionSummary.value.totalIncome) *
+    100
+  ).toFixed(1);
+};
+
+const getCompletionRate = () => {
+  const total = filteredTransactions.value.length;
+  if (total === 0) return "0";
+  const completed = filteredTransactions.value.filter(
+    (t) => t.status === "completed"
+  ).length;
+  return ((completed / total) * 100).toFixed(0);
+};
+
+const getAverageTransactionValue = () => {
+  const completed = filteredTransactions.value.filter(
+    (t) => t.status === "completed"
+  );
+  if (completed.length === 0) return 0;
+  const total = completed.reduce((sum, t) => sum + t.amount, 0);
+  return total / completed.length;
+};
+
+const getSuccessRate = () => {
+  const total = filteredTransactions.value.length;
+  if (total === 0) return "0";
+  const successful = filteredTransactions.value.filter(
+    (t) => t.status === "completed"
+  ).length;
+  return ((successful / total) * 100).toFixed(0);
+};
 
 // Methods
 const formatPrice = (price) => {
@@ -1180,7 +1337,6 @@ const handleFileUpload = (event) => {
     "image/jpg",
     "application/pdf",
   ];
-
   if (!allowedTypes.includes(file.type)) {
     showMessage("Please select a valid image (JPG, PNG) or PDF file", "error");
     return;
@@ -1212,14 +1368,12 @@ const validateForm = () => {
 
 const saveTransaction = async () => {
   console.log("Starting saveTransaction...");
-
   if (!validateForm()) {
     console.log("Form validation failed");
     return;
   }
 
   isLoading.value = true;
-
   try {
     const { $firebase } = useNuxtApp();
 
@@ -1304,7 +1458,6 @@ const saveTransaction = async () => {
       };
 
       console.log("Saving new income transaction data:", transactionData);
-
       const docRef = await addDoc(
         collection($firebase.firestore, "transactions"),
         transactionData
@@ -1317,8 +1470,8 @@ const saveTransaction = async () => {
         date: new Date(transactionForm.date),
         createdAt: new Date(),
       };
-
       transactions.value.unshift(newTransaction);
+
       showMessage("Income transaction added successfully!", "success");
     }
 
@@ -1337,7 +1490,6 @@ const saveTransaction = async () => {
 
 const closeTransactionModal = async () => {
   console.log("Closing transaction modal...");
-
   showAddTransactionModal.value = false;
   editingTransaction.value = null;
   uploadingStatus.value = "";

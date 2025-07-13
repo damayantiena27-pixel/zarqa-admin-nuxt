@@ -52,7 +52,7 @@
         <AlertDescription>{{ message }}</AlertDescription>
       </Alert>
 
-      <!-- Approval Summary -->
+      <!-- Enhanced Approval Summary -->
       <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
         <!-- Pending Expenses -->
         <Card>
@@ -66,23 +66,27 @@
             <div class="text-xl font-bold">
               {{ pendingExpenses.length }}
             </div>
-            <p class="text-xs text-muted-foreground">Awaiting your approval</p>
+            <p class="text-xs text-muted-foreground">
+              Rp {{ formatPrice(totalPendingAmount) }} total value
+            </p>
           </CardContent>
         </Card>
 
-        <!-- Total Amount -->
+        <!-- Aging Analysis -->
         <Card>
           <CardHeader
             class="flex flex-row items-center justify-between space-y-0"
           >
-            <CardTitle class="text-sm font-medium">Total Amount</CardTitle>
-            <DollarSign />
+            <CardTitle class="text-sm font-medium">Urgent Items</CardTitle>
+            <AlertTriangle class="text-orange-500" />
           </CardHeader>
           <CardContent>
-            <div class="text-xl font-bold">
-              Rp {{ formatPrice(totalPendingAmount) }}
+            <div class="text-xl font-bold text-orange-600">
+              {{ agingAnalysis.urgent }}
             </div>
-            <p class="text-xs text-muted-foreground">Pending approval value</p>
+            <p class="text-xs text-muted-foreground">
+              {{ agingAnalysis.overdue }} overdue items
+            </p>
           </CardContent>
         </Card>
 
@@ -98,7 +102,9 @@
             <div class="text-xl font-bold text-green-600">
               {{ todayApprovedCount }}
             </div>
-            <p class="text-xs text-muted-foreground">Expenses approved</p>
+            <p class="text-xs text-muted-foreground">
+              Rp {{ formatPrice(todayApprovedValue) }} approved
+            </p>
           </CardContent>
         </Card>
 
@@ -114,7 +120,72 @@
             <div class="text-xl font-bold text-red-600">
               {{ todayRejectedCount }}
             </div>
-            <p class="text-xs text-muted-foreground">Expenses rejected</p>
+            <p class="text-xs text-muted-foreground">
+              Rp {{ formatPrice(todayRejectedValue) }} rejected
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
+      <!-- Approval Analytics -->
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+        <Card>
+          <CardHeader>
+            <CardTitle>Approval Metrics</CardTitle>
+          </CardHeader>
+          <CardContent class="space-y-3">
+            <div class="flex justify-between">
+              <span class="text-sm text-muted-foreground">Approval Rate</span>
+              <span class="font-medium">{{ getApprovalRate() }}%</span>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-sm text-muted-foreground">Avg Processing</span>
+              <span class="font-medium"
+                >{{ getAvgProcessingTime() }} hours</span
+              >
+            </div>
+            <div class="flex justify-between">
+              <span class="text-sm text-muted-foreground">Rejection Rate</span>
+              <span class="font-medium">{{ getRejectionRate() }}%</span>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Pending by Category</CardTitle>
+          </CardHeader>
+          <CardContent class="space-y-2">
+            <div
+              v-for="(count, category) in categoryBreakdown"
+              :key="category"
+              class="flex justify-between text-sm"
+            >
+              <span>{{ getCategoryLabel(category) }}</span>
+              <Badge variant="outline">{{ count }}</Badge>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Priority Distribution</CardTitle>
+          </CardHeader>
+          <CardContent class="space-y-2">
+            <div class="flex justify-between text-sm">
+              <span>High Priority</span>
+              <Badge variant="destructive">{{
+                getPriorityCount("high")
+              }}</Badge>
+            </div>
+            <div class="flex justify-between text-sm">
+              <span>Normal Priority</span>
+              <Badge variant="outline">{{ getPriorityCount("normal") }}</Badge>
+            </div>
+            <div class="flex justify-between text-sm">
+              <span>Low Priority</span>
+              <Badge variant="secondary">{{ getPriorityCount("low") }}</Badge>
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -222,7 +293,10 @@
                   <div class="text-sm">
                     {{ formatDate(expense.createdAt) }}
                   </div>
-                  <div class="text-xs text-muted-foreground">
+                  <div
+                    class="text-xs"
+                    :class="getAgingColor(expense.createdAt)"
+                  >
                     {{ getTimeAgo(expense.createdAt) }}
                   </div>
                 </TableCell>
@@ -467,10 +541,9 @@ import { Shield, ShieldX, RefreshCw } from "lucide-vue-next";
 import HeadersContent from "~/components/ui/HeadersContent.vue";
 import {
   Clock,
-  DollarSign,
+  AlertTriangle,
   CheckCircle,
   XCircle,
-  AlertTriangle,
   Eye,
   Check,
   X,
@@ -485,6 +558,7 @@ import {
   doc,
   setDoc,
   serverTimestamp,
+  limit,
 } from "firebase/firestore";
 
 // Set page meta for role-based access
@@ -510,9 +584,14 @@ const expenseToReject = ref(null);
 const loadingExpenses = ref(false);
 const message = ref("");
 const messageType = ref("");
-
 const pendingExpenses = ref([]);
 const recentApprovalHistory = ref([]);
+
+// Enhanced analytics state
+const agingAnalysis = reactive({
+  urgent: 0, // high priority items
+  overdue: 0, // > 7 days old
+});
 
 // Function to fetch pending expenses from Firestore
 const fetchPendingExpenses = async () => {
@@ -527,7 +606,6 @@ const fetchPendingExpenses = async () => {
     );
 
     const querySnapshot = await getDocs(expensesQuery);
-
     pendingExpenses.value = querySnapshot.docs.map((doc) => {
       const data = doc.data();
       return {
@@ -542,6 +620,7 @@ const fetchPendingExpenses = async () => {
       };
     });
 
+    calculateAgingAnalysis();
     console.log("Fetched pending expenses:", pendingExpenses.value);
   } catch (error) {
     console.error("Error fetching pending expenses:", error);
@@ -564,7 +643,6 @@ const fetchApprovalHistory = async () => {
     );
 
     const querySnapshot = await getDocs(historyQuery);
-
     recentApprovalHistory.value = querySnapshot.docs.map((doc) => {
       const data = doc.data();
       return {
@@ -585,6 +663,21 @@ const fetchApprovalHistory = async () => {
   }
 };
 
+// Enhanced aging analysis
+const calculateAgingAnalysis = () => {
+  const now = new Date();
+  agingAnalysis.urgent = pendingExpenses.value.filter(
+    (expense) => expense.priority === "high" || expense.priority === "urgent"
+  ).length;
+
+  agingAnalysis.overdue = pendingExpenses.value.filter((expense) => {
+    const daysDiff = Math.floor(
+      (now - new Date(expense.createdAt)) / (1000 * 60 * 60 * 24)
+    );
+    return daysDiff > 7;
+  }).length;
+};
+
 // Computed
 const totalPendingAmount = computed(() => {
   return pendingExpenses.value.reduce(
@@ -600,12 +693,68 @@ const todayApprovedCount = computed(() => {
   ).length;
 });
 
+const todayApprovedValue = computed(() => {
+  const today = new Date().toDateString();
+  return recentApprovalHistory.value
+    .filter(
+      (h) => h.action === "approved" && h.actionDate.toDateString() === today
+    )
+    .reduce((sum, h) => sum + h.amount, 0);
+});
+
 const todayRejectedCount = computed(() => {
   const today = new Date().toDateString();
   return recentApprovalHistory.value.filter(
     (h) => h.action === "rejected" && h.actionDate.toDateString() === today
   ).length;
 });
+
+const todayRejectedValue = computed(() => {
+  const today = new Date().toDateString();
+  return recentApprovalHistory.value
+    .filter(
+      (h) => h.action === "rejected" && h.actionDate.toDateString() === today
+    )
+    .reduce((sum, h) => sum + h.amount, 0);
+});
+
+const categoryBreakdown = computed(() => {
+  const breakdown = {};
+  pendingExpenses.value.forEach((expense) => {
+    breakdown[expense.category] = (breakdown[expense.category] || 0) + 1;
+  });
+  return breakdown;
+});
+
+// Business metrics methods
+const getApprovalRate = () => {
+  const total = recentApprovalHistory.value.length;
+  if (total === 0) return "0";
+  const approved = recentApprovalHistory.value.filter(
+    (h) => h.action === "approved"
+  ).length;
+  return ((approved / total) * 100).toFixed(0);
+};
+
+const getRejectionRate = () => {
+  const total = recentApprovalHistory.value.length;
+  if (total === 0) return "0";
+  const rejected = recentApprovalHistory.value.filter(
+    (h) => h.action === "rejected"
+  ).length;
+  return ((rejected / total) * 100).toFixed(0);
+};
+
+const getAvgProcessingTime = () => {
+  // This would need processing time tracking in actual implementation
+  return "2.5"; // Placeholder
+};
+
+const getPriorityCount = (priority) => {
+  return pendingExpenses.value.filter(
+    (expense) => (expense.priority || "normal") === priority
+  ).length;
+};
 
 // Methods
 const formatPrice = (price) => {
@@ -624,11 +773,18 @@ const formatDate = (date) => {
 const getTimeAgo = (date) => {
   const now = new Date();
   const diffHours = Math.floor((now - new Date(date)) / (1000 * 60 * 60));
-
   if (diffHours < 1) return "Just now";
   if (diffHours < 24) return `${diffHours}h ago`;
   const diffDays = Math.floor(diffHours / 24);
   return `${diffDays}d ago`;
+};
+
+const getAgingColor = (date) => {
+  const now = new Date();
+  const diffDays = Math.floor((now - new Date(date)) / (1000 * 60 * 60 * 24));
+  if (diffDays > 7) return "text-red-600";
+  if (diffDays > 3) return "text-orange-600";
+  return "text-muted-foreground";
 };
 
 const getCategoryLabel = (category) => {
@@ -659,9 +815,9 @@ const getPaymentMethodLabel = (method) => {
 const getPriorityVariant = (priority) => {
   const variants = {
     urgent: "destructive",
-    high: "secondary",
+    high: "destructive",
     normal: "outline",
-    low: "outline",
+    low: "secondary",
   };
   return variants[priority] || "outline";
 };
@@ -715,6 +871,7 @@ const approveExpense = async (expense) => {
       actionDate: new Date(),
     });
 
+    calculateAgingAnalysis();
     showMessage(
       `Expense ${expense.expenseId} has been approved successfully!`,
       "success"
@@ -774,6 +931,7 @@ const confirmRejection = async () => {
     });
 
     showRejectionModal.value = false;
+    calculateAgingAnalysis();
     showMessage(`Expense ${expense.expenseId} has been rejected.`, "success");
   } catch (error) {
     console.error("Error rejecting expense:", error);

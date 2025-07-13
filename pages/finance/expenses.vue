@@ -94,7 +94,7 @@
       </CardContent>
     </Card>
 
-    <!-- Expense Summary Cards -->
+    <!-- Enhanced Expense Summary Cards -->
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
       <Card>
         <CardHeader
@@ -107,52 +107,99 @@
           <div class="text-xl font-bold text-red-600">
             Rp {{ formatPrice(expenseSummary.total) }}
           </div>
-          <p class="text-xs text-muted-foreground">This month</p>
+          <p class="text-xs text-muted-foreground">
+            {{ expenseSummary.totalCount }} transactions this month
+          </p>
         </CardContent>
       </Card>
+
       <Card>
         <CardHeader
           class="flex flex-row items-center justify-between space-y-0"
         >
-          <CardTitle class="text-sm font-medium">Pending Approval</CardTitle>
+          <CardTitle class="text-sm font-medium">Pending Value</CardTitle>
           <Clock />
         </CardHeader>
         <CardContent>
           <div class="text-xl font-bold text-orange-600">
-            {{ expenseSummary.pending }}
+            Rp {{ formatPrice(expenseSummary.pendingValue) }}
           </div>
-          <p class="text-xs text-muted-foreground">Awaiting approval</p>
+          <p class="text-xs text-muted-foreground">
+            {{ expenseSummary.pending }} items awaiting approval
+          </p>
         </CardContent>
       </Card>
+
       <Card>
         <CardHeader
           class="flex flex-row items-center justify-between space-y-0"
         >
-          <CardTitle class="text-sm font-medium">Approved</CardTitle>
+          <CardTitle class="text-sm font-medium">Approved Value</CardTitle>
           <CheckCircle />
         </CardHeader>
         <CardContent>
           <div class="text-xl font-bold text-green-600">
-            {{ expenseSummary.approved }}
+            Rp {{ formatPrice(expenseSummary.approvedValue) }}
           </div>
-          <p class="text-xs text-muted-foreground">Ready for payment</p>
+          <p class="text-xs text-muted-foreground">
+            {{ expenseSummary.approved }} ready for payment
+          </p>
         </CardContent>
       </Card>
+
       <Card>
         <CardHeader
           class="flex flex-row items-center justify-between space-y-0"
         >
-          <CardTitle class="text-sm font-medium">Paid</CardTitle>
+          <CardTitle class="text-sm font-medium">Paid Expenses</CardTitle>
           <CreditCard />
         </CardHeader>
         <CardContent>
           <div class="text-xl font-bold text-blue-600">
-            {{ expenseSummary.paid }}
+            Rp {{ formatPrice(expenseSummary.paidValue) }}
           </div>
-          <p class="text-xs text-muted-foreground">Completed</p>
+          <p class="text-xs text-muted-foreground">
+            {{ expenseSummary.paid }} completed payments
+          </p>
         </CardContent>
       </Card>
     </div>
+
+    <!-- Expense Aging Analysis -->
+    <Card class="mb-6">
+      <CardHeader>
+        <CardTitle>Expense Aging Analysis</CardTitle>
+        <CardDescription>Pending expenses by time period</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div class="grid grid-cols-4 gap-4">
+          <div class="text-center p-3 bg-green-50 rounded">
+            <div class="text-lg font-bold text-green-600">
+              {{ agingAnalysis.current }}
+            </div>
+            <div class="text-xs text-muted-foreground">0-7 days</div>
+          </div>
+          <div class="text-center p-3 bg-yellow-50 rounded">
+            <div class="text-lg font-bold text-yellow-600">
+              {{ agingAnalysis.week }}
+            </div>
+            <div class="text-xs text-muted-foreground">8-30 days</div>
+          </div>
+          <div class="text-center p-3 bg-orange-50 rounded">
+            <div class="text-lg font-bold text-orange-600">
+              {{ agingAnalysis.month }}
+            </div>
+            <div class="text-xs text-muted-foreground">31-60 days</div>
+          </div>
+          <div class="text-center p-3 bg-red-50 rounded">
+            <div class="text-lg font-bold text-red-600">
+              {{ agingAnalysis.overdue }}
+            </div>
+            <div class="text-xs text-muted-foreground">60+ days</div>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
 
     <!-- Expenses Table -->
     <Card class="mb-4">
@@ -619,7 +666,6 @@ const { user } = useAuth();
 
 // Access control computed - only manager, owner and manager can mark as paid
 const canMarkAsPaid = computed(() => {
-  // return user.value && user.value.role?.toLowerCase() === "admin";
   return (
     user.value &&
     (user.value.role?.toLowerCase() === "manager" ||
@@ -663,11 +709,24 @@ const expenseForm = reactive({
   receiptFile: null,
 });
 
+// Enhanced expense summary
 const expenseSummary = reactive({
   total: 0,
+  totalCount: 0,
   pending: 0,
+  pendingValue: 0,
   approved: 0,
+  approvedValue: 0,
   paid: 0,
+  paidValue: 0,
+});
+
+// Aging analysis
+const agingAnalysis = reactive({
+  current: 0, // 0-7 days
+  week: 0, // 8-30 days
+  month: 0, // 31-60 days
+  overdue: 0, // 60+ days
 });
 
 const expenses = ref([]);
@@ -704,7 +763,6 @@ const uploadToCloudinary = async (file) => {
     }
 
     const data = await response.json();
-
     if (data.error) {
       throw new Error(data.error.message);
     }
@@ -733,7 +791,6 @@ const generateExpenseId = async () => {
     );
 
     const querySnapshot = await getDocs(expensesQuery);
-
     let nextNumber = 1;
 
     if (!querySnapshot.empty) {
@@ -772,7 +829,6 @@ const generateTransactionId = async () => {
     );
 
     const querySnapshot = await getDocs(transactionsQuery);
-
     let nextNumber = 1;
 
     if (!querySnapshot.empty) {
@@ -894,7 +950,6 @@ const fetchExpenses = async () => {
     );
 
     const querySnapshot = await getDocs(expensesQuery);
-
     expenses.value = querySnapshot.docs.map((doc) => {
       const data = doc.data();
       return {
@@ -910,7 +965,7 @@ const fetchExpenses = async () => {
 
     // Calculate summary
     calculateExpenseSummary();
-
+    calculateAgingAnalysis();
     console.log("Fetched expenses:", expenses.value);
   } catch (error) {
     console.error("Error fetching expenses:", error);
@@ -920,7 +975,7 @@ const fetchExpenses = async () => {
   }
 };
 
-// Function to calculate expense summary
+// Enhanced function to calculate expense summary
 const calculateExpenseSummary = () => {
   const currentMonth = new Date().getMonth();
   const currentYear = new Date().getFullYear();
@@ -933,19 +988,69 @@ const calculateExpenseSummary = () => {
     );
   });
 
+  // Calculate values by status
+  const pendingExpenses = expenses.value.filter(
+    (expense) => expense.status === "pending"
+  );
+  const approvedExpenses = expenses.value.filter(
+    (expense) => expense.status === "approved"
+  );
+  const paidExpenses = expenses.value.filter(
+    (expense) => expense.status === "paid"
+  );
+
   expenseSummary.total = thisMonthExpenses.reduce(
     (total, expense) => total + expense.amount,
     0
   );
-  expenseSummary.pending = expenses.value.filter(
+  expenseSummary.totalCount = thisMonthExpenses.length;
+
+  expenseSummary.pending = pendingExpenses.length;
+  expenseSummary.pendingValue = pendingExpenses.reduce(
+    (total, expense) => total + expense.amount,
+    0
+  );
+
+  expenseSummary.approved = approvedExpenses.length;
+  expenseSummary.approvedValue = approvedExpenses.reduce(
+    (total, expense) => total + expense.amount,
+    0
+  );
+
+  expenseSummary.paid = paidExpenses.length;
+  expenseSummary.paidValue = paidExpenses.reduce(
+    (total, expense) => total + expense.amount,
+    0
+  );
+};
+
+// Function to calculate aging analysis
+const calculateAgingAnalysis = () => {
+  const now = new Date();
+  const pendingExpenses = expenses.value.filter(
     (expense) => expense.status === "pending"
-  ).length;
-  expenseSummary.approved = expenses.value.filter(
-    (expense) => expense.status === "approved"
-  ).length;
-  expenseSummary.paid = expenses.value.filter(
-    (expense) => expense.status === "paid"
-  ).length;
+  );
+
+  agingAnalysis.current = 0;
+  agingAnalysis.week = 0;
+  agingAnalysis.month = 0;
+  agingAnalysis.overdue = 0;
+
+  pendingExpenses.forEach((expense) => {
+    const daysDiff = Math.floor(
+      (now - new Date(expense.createdAt)) / (1000 * 60 * 60 * 24)
+    );
+
+    if (daysDiff <= 7) {
+      agingAnalysis.current++;
+    } else if (daysDiff <= 30) {
+      agingAnalysis.week++;
+    } else if (daysDiff <= 60) {
+      agingAnalysis.month++;
+    } else {
+      agingAnalysis.overdue++;
+    }
+  });
 };
 
 // Computed
@@ -957,19 +1062,23 @@ const filteredExpenses = computed(() => {
       (expense) => expense.category === filters.category
     );
   }
+
   if (filters.status !== "all") {
     filtered = filtered.filter((expense) => expense.status === filters.status);
   }
+
   if (filters.dateFrom) {
     filtered = filtered.filter(
       (expense) => new Date(expense.date) >= new Date(filters.dateFrom)
     );
   }
+
   if (filters.dateTo) {
     filtered = filtered.filter(
       (expense) => new Date(expense.date) <= new Date(filters.dateTo)
     );
   }
+
   if (filters.search) {
     const search = filters.search.toLowerCase();
     filtered = filtered.filter(
@@ -1114,10 +1223,10 @@ const deleteExpense = async (expenseId) => {
       const { $firebase } = useNuxtApp();
       await deleteDoc(doc($firebase.firestore, "expenses", expenseId));
 
-      // Hapus dari lokal
+      // Remove from local
       expenses.value = expenses.value.filter((e) => e.id !== expenseId);
       calculateExpenseSummary();
-
+      calculateAgingAnalysis();
       showMessage("Expense deleted successfully!", "success");
     } catch (error) {
       console.error("Delete error:", error);
@@ -1143,7 +1252,6 @@ const handleFileUpload = (event) => {
     "image/jpg",
     "application/pdf",
   ];
-
   if (!allowedTypes.includes(file.type)) {
     showMessage("Please select a valid image (JPG, PNG) or PDF file", "error");
     return;
@@ -1173,14 +1281,12 @@ const validateForm = () => {
 
 const saveExpense = async () => {
   console.log("Starting saveExpense...");
-
   if (!validateForm()) {
     console.log("Form validation failed");
     return;
   }
 
   isLoading.value = true;
-
   try {
     const { $firebase } = useNuxtApp();
 
@@ -1204,7 +1310,6 @@ const saveExpense = async () => {
 
     // Prepare expense data
     uploadingStatus.value = "Saving expense...";
-
     if (editingExpense.value) {
       // Update existing expense
       const expenseData = {
@@ -1261,7 +1366,6 @@ const saveExpense = async () => {
       };
 
       console.log("Saving new expense data:", expenseData);
-
       const docRef = await addDoc(
         collection($firebase.firestore, "expenses"),
         expenseData
@@ -1274,14 +1378,15 @@ const saveExpense = async () => {
         date: new Date(expenseForm.date),
         createdAt: new Date(),
       };
-
       expenses.value.unshift(newExpense);
+
       showMessage("Expense added successfully!", "success");
     }
 
     calculateExpenseSummary();
+    calculateAgingAnalysis();
 
-    // Close modal dengan delay kecil untuk memastikan message muncul
+    // Close modal with delay
     setTimeout(async () => {
       await closeExpenseModal();
     }, 500);
@@ -1296,7 +1401,6 @@ const saveExpense = async () => {
 
 const closeExpenseModal = async () => {
   console.log("Closing expense modal...");
-
   // Force close modal
   showAddExpenseModal.value = false;
   editingExpense.value = null;
@@ -1315,7 +1419,7 @@ const closeExpenseModal = async () => {
     receiptFile: null,
   });
 
-  // Reset file input dengan nextTick
+  // Reset file input with nextTick
   await nextTick();
   const fileInput = document.getElementById("receipt");
   if (fileInput) {
