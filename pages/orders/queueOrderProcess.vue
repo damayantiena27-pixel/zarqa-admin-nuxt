@@ -18,7 +18,7 @@
       </div>
     </div>
     <!-- Statistics Cards -->
-    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6 px-4">
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8 px-4">
       <!-- Total Antrian -->
       <Card>
         <CardHeader
@@ -85,7 +85,7 @@
       </Card>
     </div>
     <!-- Priority Algorithm Info -->
-    <Card class="mb-6 mx-4">
+    <Card class="mb-8 mx-4">
       <CardHeader>
         <CardTitle class="flex items-center">
           <Brain class="mr-2 h-5 w-5" />

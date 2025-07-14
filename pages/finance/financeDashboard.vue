@@ -237,17 +237,14 @@
           <CardTitle>Quick Actions</CardTitle>
         </CardHeader>
         <CardContent class="space-y-2">
-          <Button
-            class="w-full"
-            @click="$router.push('/admin/finance/transactions')"
-          >
+          <Button class="w-full" @click="$router.push('/finance/transactions')">
             <Plus class="mr-2 h-4 w-4" />
             Add Income
           </Button>
           <Button
             variant="outline"
             class="w-full"
-            @click="$router.push('/admin/finance/expenses')"
+            @click="$router.push('/finance/expenses')"
           >
             <FileText class="mr-2 h-4 w-4" />
             Submit Expense
@@ -255,7 +252,7 @@
           <Button
             variant="outline"
             class="w-full"
-            @click="$router.push('/admin/finance/approvals')"
+            @click="$router.push('/finance/approval')"
           >
             <CheckCircle class="mr-2 h-4 w-4" />
             Review Approvals

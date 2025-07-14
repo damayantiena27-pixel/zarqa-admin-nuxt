@@ -1,4154 +1,331 @@
-hai bolt saya mempunyai project menggunakan vue.js dan nuxt js, tailwind css 4 shadcn vue, dan backend saya menggunakan firebase firestore, coba analisis workflow dari web admin saya di bagian finance, apakah sudah benar sesuai bisnis proses, dan nanti saya akan berikan codingan dan gambar nya
+listOrder.vue:
 
-Finance Dashboard:
 <template>
-  <div class="container mx-auto px-4 min-w-full">
-    <!-- Header -->
-    <HeadersContent
-      title="Finance Dashboard"
-      description="Monitor your business financial performance"
-    />
-
-    <!-- Alert Messages -->
-    <Alert
-      v-if="message"
-      :class="messageType === 'error' ? 'border-red-500' : 'border-green-500'"
-      class="mb-6"
-    >
-      <AlertDescription>{{ message }}</AlertDescription>
-    </Alert>
-
-    <!-- Date Range Selector -->
-    <div class="flex justify-between items-center mb-6">
-      <div class="flex items-center space-x-4">
-        <Select
-          v-model="selectedPeriod"
-          @update:model-value="loadFinancialData"
-        >
-          <SelectTrigger class="w-48">
-            <SelectValue placeholder="Select period" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="today">Today</SelectItem>
-            <SelectItem value="week">This Week</SelectItem>
-            <SelectItem value="month">This Month</SelectItem>
-            <SelectItem value="quarter">This Quarter</SelectItem>
-            <SelectItem value="year">This Year</SelectItem>
-            <SelectItem value="custom">Custom Range</SelectItem>
-          </SelectContent>
-        </Select>
-
-        <div
-          v-if="selectedPeriod === 'custom'"
-          class="flex items-center space-x-2"
-        >
-          <Input
-            type="date"
-            v-model="customDateRange.start"
-            class="w-40"
-            @change="loadFinancialData"
-          />
-          <span>to</span>
-          <Input
-            type="date"
-            v-model="customDateRange.end"
-            class="w-40"
-            @change="loadFinancialData"
-          />
-        </div>
-      </div>
-
-      <div class="flex space-x-2">
-        <Button variant="outline" @click="exportData">
-          <Download class="mr-2 h-4 w-4" />
-          Export
-        </Button>
-        <Button @click="refreshData">
-          <RefreshCw class="mr-2 h-4 w-4" />
-          Refresh
-        </Button>
-      </div>
-    </div>
-
-    <!-- Financial Overview Cards -->
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-      <!-- Total Revenue -->
-      <Card>
-        <CardHeader
-          class="flex flex-row items-center justify-between space-y-0"
-        >
-          <CardTitle class="text-sm font-medium">Total Revenue</CardTitle>
-          <TrendingUp class="text-green-500" />
-        </CardHeader>
-        <CardContent>
-          <div class="text-xl font-bold text-green-600">
-            Rp {{ formatPrice(financialData.totalRevenue) }}
-          </div>
-          <p class="text-xs text-muted-foreground">
-            <span
-              :class="
-                financialData.revenueGrowth >= 0
-                  ? 'text-green-600'
-                  : 'text-red-600'
-              "
-            >
-              {{ financialData.revenueGrowth >= 0 ? "+" : ""
-              }}{{ financialData.revenueGrowth.toFixed(1) }}%
-            </span>
-            from last period
-          </p>
-        </CardContent>
-      </Card>
-
-      <!-- Total Expenses -->
-      <Card>
-        <CardHeader
-          class="flex flex-row items-center justify-between space-y-0"
-        >
-          <CardTitle class="text-sm font-medium">Total Expenses</CardTitle>
-          <TrendingDown class="text-red-500" />
-        </CardHeader>
-        <CardContent>
-          <div class="text-xl font-bold text-red-600">
-            Rp {{ formatPrice(financialData.totalExpenses) }}
-          </div>
-          <p class="text-xs text-muted-foreground">
-            <span
-              :class="
-                financialData.expenseGrowth <= 0
-                  ? 'text-green-600'
-                  : 'text-red-600'
-              "
-            >
-              {{ financialData.expenseGrowth >= 0 ? "+" : ""
-              }}{{ financialData.expenseGrowth.toFixed(1) }}%
-            </span>
-            from last period
-          </p>
-        </CardContent>
-      </Card>
-
-      <!-- Net Profit -->
-      <Card>
-        <CardHeader
-          class="flex flex-row items-center justify-between space-y-0"
-        >
-          <CardTitle class="text-sm font-medium">Net Profit</CardTitle>
-          <DollarSign />
-        </CardHeader>
-        <CardContent>
-          <div
-            class="text-xl font-bold"
-            :class="
-              financialData.netProfit >= 0 ? 'text-green-600' : 'text-red-600'
-            "
-          >
-            Rp {{ formatPrice(financialData.netProfit) }}
-          </div>
-          <p class="text-xs text-muted-foreground">
-            {{
-              financialData.totalRevenue > 0
-                ? (
-                    (financialData.netProfit / financialData.totalRevenue) *
-                    100
-                  ).toFixed(1)
-                : 0
-            }}% profit margin
-          </p>
-        </CardContent>
-      </Card>
-
-      <!-- Cash Flow -->
-      <Card>
-        <CardHeader
-          class="flex flex-row items-center justify-between space-y-0"
-        >
-          <CardTitle class="text-sm font-medium">Cash Flow</CardTitle>
-          <Wallet />
-        </CardHeader>
-        <CardContent>
-          <div
-            class="text-xl font-bold"
-            :class="
-              financialData.cashFlow >= 0 ? 'text-green-600' : 'text-red-600'
-            "
-          >
-            Rp {{ formatPrice(financialData.cashFlow) }}
-          </div>
-          <p class="text-xs text-muted-foreground">Current cash position</p>
-        </CardContent>
-      </Card>
-    </div>
-
-    <!-- Charts Section -->
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-      <!-- Revenue vs Expenses Chart -->
-      <Card>
-        <CardHeader>
-          <CardTitle>Revenue vs Expenses</CardTitle>
-          <CardDescription>Monthly comparison</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div class="h-80">
-            <OverviewChart :data="chartData" />
-          </div>
-        </CardContent>
-      </Card>
-
-      <!-- Expense Categories -->
-      <Card>
-        <CardHeader>
-          <CardTitle>Expense Categories</CardTitle>
-          <CardDescription>Breakdown by category</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div v-if="expenseCategories.length === 0" class="text-center py-8">
-            <p class="text-muted-foreground">No expense data available</p>
-          </div>
-          <div v-else class="space-y-4">
-            <div
-              v-for="category in expenseCategories"
-              :key="category.name"
-              class="flex items-center justify-between"
-            >
-              <div class="flex items-center space-x-3">
-                <div
-                  class="w-4 h-4 rounded"
-                  :style="{ backgroundColor: category.color }"
-                ></div>
-                <span class="text-sm font-medium">{{ category.name }}</span>
-              </div>
-              <div class="text-right">
-                <div class="text-sm font-bold">
-                  Rp {{ formatPrice(category.amount) }}
-                </div>
-                <div class="text-xs text-muted-foreground">
-                  {{ category.percentage.toFixed(1) }}%
-                </div>
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-    </div>
-
-    <!-- Recent Transactions -->
-    <Card class="mb-4">
-      <CardHeader class="flex flex-row items-center justify-between">
-        <div>
-          <CardTitle>Recent Transactions</CardTitle>
-          <CardDescription>Latest financial activities</CardDescription>
-        </div>
-        <Button
-          variant="outline"
-          @click="$router.push('/finance/transactions')"
-        >
-          View All
-          <ArrowRight class="ml-2 h-4 w-4" />
-        </Button>
-      </CardHeader>
-      <CardContent>
-        <div v-if="loadingTransactions" class="text-center py-8">
-          <div
-            class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"
-          ></div>
-          <p class="mt-2 text-sm text-muted-foreground">
-            Loading transactions...
-          </p>
-        </div>
-        <div
-          v-else-if="recentTransactions.length === 0"
-          class="text-center py-8"
-        >
-          <p class="text-muted-foreground">No recent transactions</p>
-        </div>
-        <div v-else class="space-y-4">
-          <div
-            v-for="transaction in recentTransactions"
-            :key="transaction.id"
-            class="flex items-center justify-between p-4 border rounded-lg"
-          >
-            <div class="flex items-center space-x-4">
-              <div
-                class="p-2 rounded-full"
-                :class="
-                  transaction.type === 'income' ? 'bg-green-100' : 'bg-red-100'
-                "
-              >
-                <component
-                  :is="getTransactionIcon(transaction.category)"
-                  :class="
-                    transaction.type === 'income'
-                      ? 'text-green-600'
-                      : 'text-red-600'
-                  "
-                  class="h-4 w-4"
-                />
-              </div>
-              <div>
-                <div class="font-medium">{{ transaction.description }}</div>
-                <div class="text-sm text-muted-foreground">
-                  {{ getCategoryLabel(transaction.category) }} •
-                  {{ formatDate(transaction.date) }}
-                </div>
-              </div>
-            </div>
-            <div class="text-right">
-              <div
-                class="font-bold"
-                :class="
-                  transaction.type === 'income'
-                    ? 'text-green-600'
-                    : 'text-red-600'
-                "
-              >
-                {{ transaction.type === "income" ? "+" : "-" }}Rp
-                {{ formatPrice(transaction.amount) }}
-              </div>
-              <Badge
-                :variant="
-                  transaction.status === 'completed' ? 'default' : 'secondary'
-                "
-              >
-                {{ transaction.status }}
-              </Badge>
-            </div>
-          </div>
-        </div>
-      </CardContent>
-    </Card>
-  </div>
-</template>
-
-<script setup>
-import { ref, reactive, onMounted } from "vue";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
-import {
-  TrendingUp,
-  TrendingDown,
-  DollarSign,
-  Wallet,
-  Download,
-  RefreshCw,
-  ArrowRight,
-  ShoppingCart,
-  Truck,
-  Users,
-  Settings,
-  Smartphone,
-  Zap,
-  Car,
-  FileText,
-  Briefcase,
-  Home,
-  TrendingUpIcon,
-} from "lucide-vue-next";
-import HeadersContent from "~/components/ui/HeadersContent.vue";
-import { collection, getDocs, query, where, orderBy } from "firebase/firestore";
-import OverviewChart from "@/components/chart/OverviewChart.vue";
-
-definePageMeta({
-  middleware: "auth",
-});
-
-// State
-const selectedPeriod = ref("month");
-const customDateRange = reactive({
-  start: "",
-  end: "",
-});
-const message = ref("");
-const messageType = ref("");
-const loadingTransactions = ref(false);
-
-const financialData = reactive({
-  totalRevenue: 0,
-  totalExpenses: 0,
-  netProfit: 0,
-  cashFlow: 0,
-  revenueGrowth: 0,
-  expenseGrowth: 0,
-});
-
-const expenseCategories = ref([]);
-const recentTransactions = ref([]);
-const chartData = ref({
-  labels: [
-    "Jan",
-    "Feb",
-    "Mar",
-    "Apr",
-    "May",
-    "Jun",
-    "Jul",
-    "Aug",
-    "Sep",
-    "Oct",
-    "Nov",
-    "Dec",
-  ],
-  datasets: [
-    {
-      label: "Revenue",
-      data: Array(12).fill(0),
-      backgroundColor: "#22c55e",
-      borderRadius: 4,
-      borderSkipped: false,
-    },
-    {
-      label: "Expenses",
-      data: Array(12).fill(0),
-      backgroundColor: "#ef4444",
-      borderRadius: 4,
-      borderSkipped: false,
-    },
-  ],
-});
-
-// Helper function to get date range based on selected period
-const getDateRange = () => {
-  const now = new Date();
-  let startDate, endDate;
-
-  switch (selectedPeriod.value) {
-    case "today":
-      startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-      endDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
-      break;
-    case "week":
-      const weekStart = new Date(now);
-      weekStart.setDate(now.getDate() - now.getDay());
-      startDate = new Date(
-        weekStart.getFullYear(),
-        weekStart.getMonth(),
-        weekStart.getDate()
-      );
-      endDate = new Date(
-        weekStart.getFullYear(),
-        weekStart.getMonth(),
-        weekStart.getDate() + 7
-      );
-      break;
-    case "month":
-      startDate = new Date(now.getFullYear(), now.getMonth(), 1);
-      endDate = new Date(now.getFullYear(), now.getMonth() + 1, 1);
-      break;
-    case "quarter":
-      const quarterStart = Math.floor(now.getMonth() / 3) * 3;
-      startDate = new Date(now.getFullYear(), quarterStart, 1);
-      endDate = new Date(now.getFullYear(), quarterStart + 3, 1);
-      break;
-    case "year":
-      startDate = new Date(now.getFullYear(), 0, 1);
-      endDate = new Date(now.getFullYear() + 1, 0, 1);
-      break;
-    case "custom":
-      if (customDateRange.start && customDateRange.end) {
-        startDate = new Date(customDateRange.start);
-        endDate = new Date(customDateRange.end);
-        endDate.setDate(endDate.getDate() + 1); // Include end date
-      } else {
-        // Default to current month if custom dates not set
-        startDate = new Date(now.getFullYear(), now.getMonth(), 1);
-        endDate = new Date(now.getFullYear(), now.getMonth() + 1, 1);
-      }
-      break;
-    default:
-      startDate = new Date(now.getFullYear(), now.getMonth(), 1);
-      endDate = new Date(now.getFullYear(), now.getMonth() + 1, 1);
-  }
-
-  return { startDate, endDate };
-};
-
-// Function to get previous period date range for growth calculation
-const getPreviousPeriodRange = () => {
-  const { startDate, endDate } = getDateRange();
-  const periodLength = endDate.getTime() - startDate.getTime();
-
-  const prevEndDate = new Date(startDate.getTime());
-  const prevStartDate = new Date(startDate.getTime() - periodLength);
-
-  return { startDate: prevStartDate, endDate: prevEndDate };
-};
-
-// Function to generate monthly chart data
-const generateChartData = (transactions) => {
-  const monthlyData = {
-    revenue: Array(12).fill(0),
-    expenses: Array(12).fill(0),
-  };
-
-  const currentYear = new Date().getFullYear();
-
-  transactions.forEach((transaction) => {
-    const transactionDate = transaction.date;
-    if (transactionDate.getFullYear() === currentYear) {
-      const month = transactionDate.getMonth();
-
-      if (transaction.type === "income") {
-        monthlyData.revenue[month] += transaction.amount;
-      } else if (transaction.type === "expense") {
-        monthlyData.expenses[month] += transaction.amount;
-      }
-    }
-  });
-
-  return {
-    labels: [
-      "Jan",
-      "Feb",
-      "Mar",
-      "Apr",
-      "May",
-      "Jun",
-      "Jul",
-      "Aug",
-      "Sep",
-      "Oct",
-      "Nov",
-      "Dec",
-    ],
-    datasets: [
-      {
-        label: "Revenue",
-        data: monthlyData.revenue,
-        backgroundColor: "#22c55e",
-        borderRadius: 4,
-        borderSkipped: false,
-      },
-      {
-        label: "Expenses",
-        data: monthlyData.expenses,
-        backgroundColor: "#ef4444",
-        borderRadius: 4,
-        borderSkipped: false,
-      },
-    ],
-  };
-};
-
-// Function to fetch financial data from Firestore
-const loadFinancialData = async () => {
-  try {
-    loadingTransactions.value = true;
-    const { $firebase } = useNuxtApp();
-    const { startDate, endDate } = getDateRange();
-    const { startDate: prevStartDate, endDate: prevEndDate } =
-      getPreviousPeriodRange();
-
-    // Fetch current period transactions
-    const currentTransactionsQuery = query(
-      collection($firebase.firestore, "transactions"),
-      where("date", ">=", startDate),
-      where("date", "<", endDate),
-      where("status", "==", "completed"), // Only completed transactions
-      orderBy("date", "desc")
-    );
-
-    const currentSnapshot = await getDocs(currentTransactionsQuery);
-    const currentTransactions = currentSnapshot.docs.map((doc) => {
-      const data = doc.data();
-      return {
-        id: doc.id,
-        ...data,
-        date: data.date?.toDate ? data.date.toDate() : new Date(data.date),
-      };
-    });
-
-    // Fetch previous period transactions for growth calculation
-    const prevTransactionsQuery = query(
-      collection($firebase.firestore, "transactions"),
-      where("date", ">=", prevStartDate),
-      where("date", "<", prevEndDate),
-      where("status", "==", "completed"),
-      orderBy("date", "desc")
-    );
-
-    const prevSnapshot = await getDocs(prevTransactionsQuery);
-    const prevTransactions = prevSnapshot.docs.map((doc) => {
-      const data = doc.data();
-      return {
-        id: doc.id,
-        ...data,
-        date: data.date?.toDate ? data.date.toDate() : new Date(data.date),
-      };
-    });
-
-    // Calculate current period metrics - ALL INCOME for revenue
-    const currentRevenue = currentTransactions
-      .filter((t) => t.type === "income")
-      .reduce((sum, t) => sum + t.amount, 0);
-
-    const currentExpenses = currentTransactions
-      .filter((t) => t.type === "expense")
-      .reduce((sum, t) => sum + t.amount, 0);
-
-    // Calculate previous period metrics - ALL INCOME for revenue
-    const prevRevenue = prevTransactions
-      .filter((t) => t.type === "income")
-      .reduce((sum, t) => sum + t.amount, 0);
-
-    const prevExpenses = prevTransactions
-      .filter((t) => t.type === "expense")
-      .reduce((sum, t) => sum + t.amount, 0);
-
-    // Calculate growth percentages
-    const revenueGrowth =
-      prevRevenue > 0
-        ? ((currentRevenue - prevRevenue) / prevRevenue) * 100
-        : 0;
-
-    const expenseGrowth =
-      prevExpenses > 0
-        ? ((currentExpenses - prevExpenses) / prevExpenses) * 100
-        : 0;
-
-    // Calculate metrics
-    const netProfit = currentRevenue - currentExpenses;
-    const cashFlow = currentRevenue - currentExpenses; // Same as net profit for simplicity
-
-    // Update financial data
-    Object.assign(financialData, {
-      totalRevenue: currentRevenue,
-      totalExpenses: currentExpenses,
-      netProfit: netProfit,
-      cashFlow: cashFlow,
-      revenueGrowth: revenueGrowth,
-      expenseGrowth: expenseGrowth,
-    });
-
-    // Calculate expense categories
-    const categoryTotals = {};
-    currentTransactions
-      .filter((t) => t.type === "expense")
-      .forEach((t) => {
-        categoryTotals[t.category] =
-          (categoryTotals[t.category] || 0) + t.amount;
-      });
-
-    const categoryColors = {
-      materials: "#ef4444",
-      labor: "#f97316",
-      operational: "#eab308",
-      marketing: "#22c55e",
-      utilities: "#6366f1",
-      transportation: "#8b5cf6",
-      others: "#64748b",
-    };
-
-    expenseCategories.value = Object.entries(categoryTotals)
-      .map(([category, amount]) => ({
-        name: getCategoryLabel(category),
-        amount,
-        percentage: currentExpenses > 0 ? (amount / currentExpenses) * 100 : 0,
-        color: categoryColors[category] || "#64748b",
-      }))
-      .sort((a, b) => b.amount - a.amount);
-
-    // Get recent transactions (last 5)
-    recentTransactions.value = currentTransactions.slice(0, 5);
-
-    // Generate chart data for the entire year
-    const yearStartDate = new Date(new Date().getFullYear(), 0, 1);
-    const yearEndDate = new Date(new Date().getFullYear() + 1, 0, 1);
-
-    const yearTransactionsQuery = query(
-      collection($firebase.firestore, "transactions"),
-      where("date", ">=", yearStartDate),
-      where("date", "<", yearEndDate),
-      where("status", "==", "completed"),
-      orderBy("date", "desc")
-    );
-
-    const yearSnapshot = await getDocs(yearTransactionsQuery);
-    const yearTransactions = yearSnapshot.docs.map((doc) => {
-      const data = doc.data();
-      return {
-        id: doc.id,
-        ...data,
-        date: data.date?.toDate ? data.date.toDate() : new Date(data.date),
-      };
-    });
-
-    chartData.value = generateChartData(yearTransactions);
-
-    console.log("Financial data loaded successfully:", {
-      revenue: currentRevenue,
-      expenses: currentExpenses,
-      expenseCategories: expenseCategories.value,
-      chartData: chartData.value,
-    });
-  } catch (error) {
-    console.error("Error loading financial data:", error);
-    showMessage("Failed to load financial data", "error");
-  } finally {
-    loadingTransactions.value = false;
-  }
-};
-
-// Methods
-const formatPrice = (price) => {
-  if (!price) return "0";
-  return new Intl.NumberFormat("id-ID").format(price);
-};
-
-const formatDate = (date) => {
-  return new Date(date).toLocaleDateString("id-ID", {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-  });
-};
-
-const getCategoryLabel = (category) => {
-  const labels = {
-    // Income categories
-    sales: "Sales Revenue",
-    service: "Service Income",
-    commission: "Commission",
-    rental: "Rental Income",
-    investment: "Investment Returns",
-    // Expense categories
-    materials: "Raw Materials",
-    labor: "Labor Costs",
-    operational: "Operational",
-    marketing: "Marketing",
-    utilities: "Utilities",
-    transportation: "Transportation",
-    others: "Others",
-  };
-  return labels[category] || category;
-};
-
-const getTransactionIcon = (category) => {
-  const icons = {
-    // Income icons
-    sales: ShoppingCart,
-    service: Briefcase,
-    commission: TrendingUpIcon,
-    rental: Home,
-    investment: TrendingUp,
-    // Expense icons
-    materials: Truck,
-    labor: Users,
-    operational: Settings,
-    marketing: Smartphone,
-    utilities: Zap,
-    transportation: Car,
-    others: FileText,
-  };
-  return icons[category] || FileText;
-};
-
-const showMessage = (msg, type) => {
-  message.value = msg;
-  messageType.value = type;
-  setTimeout(() => {
-    message.value = "";
-    messageType.value = "";
-  }, 5000);
-};
-
-const refreshData = () => {
-  loadFinancialData();
-  showMessage("Financial data refreshed successfully!", "success");
-};
-
-const exportData = async () => {
-  try {
-    const { $firebase } = useNuxtApp();
-    const { startDate, endDate } = getDateRange();
-
-    // Fetch transactions for export
-    const transactionsQuery = query(
-      collection($firebase.firestore, "transactions"),
-      where("date", ">=", startDate),
-      where("date", "<", endDate),
-      orderBy("date", "desc")
-    );
-
-    const snapshot = await getDocs(transactionsQuery);
-    const transactions = snapshot.docs.map((doc) => {
-      const data = doc.data();
-      return {
-        transactionId: data.transactionId,
-        type: data.type,
-        category: getCategoryLabel(data.category),
-        description: data.description,
-        amount: data.amount,
-        date: data.date?.toDate
-          ? data.date.toDate().toISOString().split("T")[0]
-          : "",
-        status: data.status,
-        entity: data.entity || "",
-        paymentMethod: data.paymentMethod || "",
-        reference: data.reference || "",
-        notes: data.notes || "",
-      };
-    });
-
-    // Create CSV content
-    if (transactions.length === 0) {
-      showMessage("No data to export for selected period", "error");
-      return;
-    }
-
-    const headers = [
-      "Transaction ID",
-      "Type",
-      "Category",
-      "Description",
-      "Amount",
-      "Date",
-      "Status",
-      "Entity",
-      "Payment Method",
-      "Reference",
-      "Notes",
-    ];
-
-    const csvContent = [
-      headers.join(","),
-      ...transactions.map((row) =>
-        Object.values(row)
-          .map((value) =>
-            typeof value === "string" && value.includes(",")
-              ? `"${value}"`
-              : value
-          )
-          .join(",")
-      ),
-    ].join("\n");
-
-    // Download CSV file
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-    const link = document.createElement("a");
-    const url = URL.createObjectURL(blob);
-    link.setAttribute("href", url);
-    link.setAttribute(
-      "download",
-      `financial-report-${selectedPeriod.value}-${
-        new Date().toISOString().split("T")[0]
-      }.csv`
-    );
-    link.style.visibility = "hidden";
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-
-    showMessage("Financial report exported successfully!", "success");
-  } catch (error) {
-    console.error("Export error:", error);
-    showMessage("Failed to export data", "error");
-  }
-};
-
-onMounted(() => {
-  console.log("Loading finance dashboard...");
-  loadFinancialData();
-});
-</script>
-
-
-Expensses.vue:
-<template>
-  <div class="container mx-auto px-4 min-w-full">
-    <!-- Header -->
-    <div class="flex items-center justify-between">
+  <div class="container mx-auto min-w-full">
+    <!-- Title and Button -->
+    <div class="flex items-center justify-between px-4">
       <HeadersContent
-        title="Expense Management"
-        description="Track and manage your business expenses"
+        title="Orders"
+        description="Manage your customer orders"
       />
-      <div class="flex space-x-2">
-        <Button variant="outline" @click="showFilters = !showFilters">
-          <Filter class="mr-2 h-4 w-4" />
-          Filters
-        </Button>
-        <Button variant="outline" @click="exportExpenses">
-          <Download class="mr-2 h-4 w-4" />
-          Export
-        </Button>
-        <Button @click="showAddExpenseModal = true">
-          <Plus class="mr-2 h-4 w-4" />
-          Add Expense
-        </Button>
-      </div>
+      <Button @click="navigateToAddOrder" class="bg-primary">
+        <Plus class="mr-2 h-4 w-4" />
+        Add Order
+      </Button>
     </div>
 
-    <!-- Alert Messages -->
-    <Alert
-      v-if="message"
-      :class="messageType === 'error' ? 'border-red-500' : 'border-green-500'"
-      class="mb-6"
-    >
-      <AlertDescription>{{ message }}</AlertDescription>
-    </Alert>
-
-    <!-- Filters -->
-    <Card v-if="showFilters" class="mb-6">
-      <CardContent class="pt-6">
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div>
-            <Label class="mb-2">Category</Label>
-            <Select v-model="filters.category">
-              <SelectTrigger>
-                <SelectValue placeholder="All Categories" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Categories</SelectItem>
-                <SelectItem value="materials">Raw Materials</SelectItem>
-                <SelectItem value="labor">Labor Costs</SelectItem>
-                <SelectItem value="operational">Operational</SelectItem>
-                <SelectItem value="marketing">Marketing</SelectItem>
-                <SelectItem value="utilities">Utilities</SelectItem>
-                <SelectItem value="transportation">Transportation</SelectItem>
-                <SelectItem value="others">Others</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div>
-            <Label class="mb-2">Status</Label>
-            <Select v-model="filters.status">
-              <SelectTrigger>
-                <SelectValue placeholder="All Status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Status</SelectItem>
-                <SelectItem value="pending">Pending</SelectItem>
-                <SelectItem value="approved">Approved</SelectItem>
-                <SelectItem value="paid">Paid</SelectItem>
-                <SelectItem value="rejected">Rejected</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div>
-            <Label class="mb-2">Date From</Label>
-            <Input type="date" v-model="filters.dateFrom" />
-          </div>
-          <div>
-            <Label class="mb-2">Date To</Label>
-            <Input type="date" v-model="filters.dateTo" />
-          </div>
-        </div>
-        <div class="flex justify-between items-center mt-4">
-          <div class="flex items-center space-x-2">
-            <Label>Search:</Label>
-            <Input
-              v-model="filters.search"
-              placeholder="Search expenses..."
-              class="w-64"
-            />
-          </div>
-          <div class="flex space-x-2">
-            <Button variant="outline" @click="clearFilters">Clear</Button>
-            <Button @click="applyFilters">Apply Filters</Button>
-          </div>
-        </div>
-      </CardContent>
-    </Card>
-
-    <!-- Expense Summary Cards -->
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-      <Card>
-        <CardHeader
-          class="flex flex-row items-center justify-between space-y-0"
-        >
-          <CardTitle class="text-sm font-medium">Total Expenses</CardTitle>
-          <DollarSign class="text-red-500" />
-        </CardHeader>
-        <CardContent>
-          <div class="text-xl font-bold text-red-600">
-            Rp {{ formatPrice(expenseSummary.total) }}
-          </div>
-          <p class="text-xs text-muted-foreground">This month</p>
-        </CardContent>
-      </Card>
-      <Card>
-        <CardHeader
-          class="flex flex-row items-center justify-between space-y-0"
-        >
-          <CardTitle class="text-sm font-medium">Pending Approval</CardTitle>
-          <Clock />
-        </CardHeader>
-        <CardContent>
-          <div class="text-xl font-bold text-orange-600">
-            {{ expenseSummary.pending }}
-          </div>
-          <p class="text-xs text-muted-foreground">Awaiting approval</p>
-        </CardContent>
-      </Card>
-      <Card>
-        <CardHeader
-          class="flex flex-row items-center justify-between space-y-0"
-        >
-          <CardTitle class="text-sm font-medium">Approved</CardTitle>
-          <CheckCircle />
-        </CardHeader>
-        <CardContent>
-          <div class="text-xl font-bold text-green-600">
-            {{ expenseSummary.approved }}
-          </div>
-          <p class="text-xs text-muted-foreground">Ready for payment</p>
-        </CardContent>
-      </Card>
-      <Card>
-        <CardHeader
-          class="flex flex-row items-center justify-between space-y-0"
-        >
-          <CardTitle class="text-sm font-medium">Paid</CardTitle>
-          <CreditCard />
-        </CardHeader>
-        <CardContent>
-          <div class="text-xl font-bold text-blue-600">
-            {{ expenseSummary.paid }}
-          </div>
-          <p class="text-xs text-muted-foreground">Completed</p>
-        </CardContent>
-      </Card>
-    </div>
-
-    <!-- Expenses Table -->
-    <Card class="mb-4">
-      <CardHeader class="flex flex-row items-center justify-between">
-        <div>
-          <CardTitle>Expense Records</CardTitle>
-          <CardDescription>
-            Showing {{ filteredExpenses.length }} of
-            {{ expenses.length }} expenses
-          </CardDescription>
-        </div>
-        <div class="flex items-center space-x-2">
-          <Select v-model="itemsPerPage">
-            <SelectTrigger class="w-20">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="10">10</SelectItem>
-              <SelectItem value="25">25</SelectItem>
-              <SelectItem value="50">50</SelectItem>
-              <SelectItem value="100">100</SelectItem>
-            </SelectContent>
-          </Select>
-          <span class="text-sm text-muted-foreground">per page</span>
-        </div>
-      </CardHeader>
-      <CardContent>
-        <div v-if="loadingExpenses" class="text-center py-8">
-          <div
-            class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"
-          ></div>
-          <p class="mt-2 text-sm text-muted-foreground">Loading expenses...</p>
-        </div>
-        <Table v-else>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Expense ID</TableHead>
-              <TableHead>Description</TableHead>
-              <TableHead>Category</TableHead>
-              <TableHead>Amount</TableHead>
-              <TableHead>Date</TableHead>
-              <TableHead>Submitted By</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            <TableRow v-for="expense in paginatedExpenses" :key="expense.id">
-              <TableCell class="font-mono">{{ expense.expenseId }}</TableCell>
-              <TableCell>
-                <div class="flex items-center space-x-3">
-                  <div class="p-2 rounded-full bg-red-100">
-                    <component
-                      :is="getCategoryIcon(expense.category)"
-                      class="h-4 w-4 text-red-600"
-                    />
-                  </div>
-                  <div>
-                    <div class="font-medium">{{ expense.description }}</div>
-                    <div
-                      v-if="expense.vendor"
-                      class="text-sm text-muted-foreground"
-                    >
-                      Vendor: {{ expense.vendor }}
-                    </div>
-                  </div>
-                </div>
-              </TableCell>
-              <TableCell>
-                <Badge variant="outline">{{
-                  getCategoryLabel(expense.category)
-                }}</Badge>
-              </TableCell>
-              <TableCell class="font-bold text-red-600"
-                >-Rp {{ formatPrice(expense.amount) }}</TableCell
-              >
-              <TableCell>
-                <div class="text-sm">
-                  {{ formatDate(expense.date) }}
-                </div>
-                <div class="text-xs text-muted-foreground">
-                  {{ formatTime(expense.date) }}
-                </div>
-              </TableCell>
-              <TableCell>{{ expense.submittedBy }}</TableCell>
-              <TableCell>
-                <div class="flex items-center space-x-2">
-                  <Badge :variant="getStatusVariant(expense.status)">
-                    {{ expense.status }}
-                  </Badge>
-                  <div
-                    v-if="expense.status === 'approved' && canMarkAsPaid"
-                    class="flex space-x-1"
-                  >
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      @click="markAsPaid(expense)"
-                      class="text-green-600 hover:text-green-700"
-                    >
-                      Mark Paid
-                    </Button>
-                  </div>
-                </div>
-              </TableCell>
-              <TableCell>
-                <div class="flex space-x-2">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    @click="viewExpense(expense)"
-                  >
-                    <Eye class="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    @click="editExpense(expense)"
-                    :disabled="expense.status === 'paid'"
-                  >
-                    <Edit class="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    @click="deleteExpense(expense.id)"
-                    class="text-red-600"
-                    :disabled="expense.status === 'paid' || !canMarkAsPaid"
-                  >
-                    <Trash2 class="h-4 w-4" />
-                  </Button>
-                </div>
-              </TableCell>
-            </TableRow>
-          </TableBody>
-        </Table>
-
-        <!-- Pagination -->
-        <div class="flex items-center justify-between mt-4">
-          <div class="text-sm text-muted-foreground">
-            Showing {{ (currentPage - 1) * parseInt(itemsPerPage) + 1 }} to
-            {{
-              Math.min(
-                currentPage * parseInt(itemsPerPage),
-                filteredExpenses.length
-              )
-            }}
-            of {{ filteredExpenses.length }} results
-          </div>
-          <div class="flex space-x-2">
-            <Button
-              variant="outline"
-              size="sm"
-              @click="previousPage"
-              :disabled="currentPage === 1"
-            >
-              <ChevronLeft class="h-4 w-4" />
-              Previous
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              @click="nextPage"
-              :disabled="currentPage === totalPages"
-            >
-              Next
-              <ChevronRight class="h-4 w-4" />
-            </Button>
-          </div>
-        </div>
-      </CardContent>
-    </Card>
-
-    <!-- Add/Edit Expense Modal -->
-    <Dialog v-model:open="showAddExpenseModal" :key="modalKey">
-      <DialogContent class="max-w-2xl">
-        <DialogHeader>
-          <DialogTitle>{{
-            editingExpense ? "Edit Expense" : "Add New Expense"
-          }}</DialogTitle>
-        </DialogHeader>
-        <form @submit.prevent="saveExpense" class="space-y-4">
-          <!-- Loading Status -->
-          <div v-if="uploadingStatus" class="text-center py-4">
-            <div
-              class="animate-spin rounded-full h-6 w-6 border-b-2 border-black mx-auto"
-            ></div>
-            <p class="mt-2 text-sm text-muted-foreground">
-              {{ uploadingStatus }}
-            </p>
-          </div>
-
-          <div class="grid grid-cols-2 gap-4">
-            <div>
-              <Label for="description" class="mb-2">Description *</Label>
-              <Input
-                id="description"
-                v-model="expenseForm.description"
-                :disabled="isLoading"
-                required
-              />
-            </div>
-            <div>
-              <Label for="category" class="mb-2">Category *</Label>
-              <Select
-                v-model="expenseForm.category"
-                :disabled="isLoading"
-                required
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select category" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="materials">Raw Materials</SelectItem>
-                  <SelectItem value="labor">Labor Costs</SelectItem>
-                  <SelectItem value="operational">Operational</SelectItem>
-                  <SelectItem value="marketing">Marketing</SelectItem>
-                  <SelectItem value="utilities">Utilities</SelectItem>
-                  <SelectItem value="transportation">Transportation</SelectItem>
-                  <SelectItem value="others">Others</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          <div class="grid grid-cols-2 gap-4">
-            <div>
-              <Label for="amount" class="mb-2">Amount (Rp) *</Label>
-              <Input
-                id="amount"
-                type="number"
-                v-model="expenseForm.amount"
-                :disabled="isLoading"
-                required
-              />
-            </div>
-            <div>
-              <Label for="date" class="mb-2">Date *</Label>
-              <Input
-                id="date"
-                type="date"
-                v-model="expenseForm.date"
-                :disabled="isLoading"
-                required
-              />
-            </div>
-          </div>
-          <div class="grid grid-cols-2 gap-4">
-            <div>
-              <Label for="vendor" class="mb-2">Vendor/Supplier</Label>
-              <Input
-                id="vendor"
-                v-model="expenseForm.vendor"
-                :disabled="isLoading"
-              />
-            </div>
-            <div>
-              <Label for="paymentMethod" class="mb-2">Payment Method</Label>
-              <Select v-model="expenseForm.paymentMethod" :disabled="isLoading">
-                <SelectTrigger>
-                  <SelectValue placeholder="Select payment method" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="cash">Cash</SelectItem>
-                  <SelectItem value="bank_transfer">Bank Transfer</SelectItem>
-                  <SelectItem value="credit_card">Credit Card</SelectItem>
-                  <SelectItem value="check">Check</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          <div>
-            <Label for="notes" class="mb-2">Notes</Label>
-            <Textarea
-              id="notes"
-              v-model="expenseForm.notes"
-              :disabled="isLoading"
-              rows="3"
-            />
-          </div>
-          <div>
-            <Label for="receipt" class="mb-2">Receipt/Invoice</Label>
-            <Input
-              id="receipt"
-              type="file"
-              accept="image/*,application/pdf"
-              :disabled="isLoading"
-              @change="handleFileUpload"
-            />
-            <p class="text-sm text-muted-foreground mt-1">
-              Maximum file size: 5MB. Supported formats: JPG, PNG, PDF
-            </p>
-          </div>
-
-          <div class="flex justify-end space-x-2">
-            <Button
-              type="button"
-              variant="outline"
-              :disabled="isLoading"
-              @click="handleCancelExpense"
-            >
-              Cancel
-            </Button>
-            <Button type="submit" :disabled="isLoading">
-              {{ editingExpense ? "Update" : "Save" }} Expense
-            </Button>
-          </div>
-        </form>
-      </DialogContent>
-    </Dialog>
-
-    <!-- View Modal -->
-    <Dialog v-model:open="showViewExpenseModal">
-      <DialogContent class="max-w-xl">
-        <DialogHeader>
-          <DialogTitle>Expense Details</DialogTitle>
-        </DialogHeader>
-        <div v-if="selectedExpense" class="space-y-4">
-          <div class="grid grid-cols-2 gap-4">
-            <div>
-              <Label class="font-medium mb-2">Expense ID</Label>
-              <p class="font-mono">{{ selectedExpense.expenseId }}</p>
-            </div>
-            <div>
-              <Label class="font-medium mb-2">Status</Label>
-              <Badge :variant="getStatusVariant(selectedExpense.status)">
-                {{ selectedExpense.status }}
-              </Badge>
-            </div>
-          </div>
-          <div class="grid grid-cols-2 gap-4">
-            <div>
-              <Label class="font-medium mb-2">Amount</Label>
-              <p class="text-lg font-bold text-red-600">
-                -Rp {{ formatPrice(selectedExpense.amount) }}
-              </p>
-            </div>
-            <div>
-              <Label class="font-medium mb-2">Category</Label>
-              <p>{{ getCategoryLabel(selectedExpense.category) }}</p>
-            </div>
-          </div>
-          <div class="grid grid-cols-2 gap-4">
-            <div>
-              <Label class="font-medium mb-2">Description</Label>
-              <p>{{ selectedExpense.description }}</p>
-            </div>
-            <div>
-              <Label class="font-medium mb-2">Vendor/Supplier</Label>
-              <p>{{ selectedExpense.vendor || "-" }}</p>
-            </div>
-          </div>
-          <div class="grid grid-cols-2 gap-4">
-            <div>
-              <Label class="font-medium mb-2">Date</Label>
-              <p>
-                {{ formatDate(selectedExpense.date) }}
-                {{ formatTime(selectedExpense.date) }}
-              </p>
-            </div>
-            <div>
-              <Label class="font-medium mb-2">Payment Method</Label>
-              <p>{{ selectedExpense.paymentMethod || "-" }}</p>
-            </div>
-          </div>
-          <div v-if="selectedExpense.notes">
-            <Label class="font-medium mb-2">Notes</Label>
-            <p class="text-sm text-muted-foreground">
-              {{ selectedExpense.notes }}
-            </p>
-          </div>
-          <div v-if="selectedExpense.receiptUrl">
-            <Label class="font-medium mb-2">Receipt/Invoice</Label>
-            <a
-              :href="selectedExpense.receiptUrl"
-              target="_blank"
-              class="text-blue-600 underline"
-              >View Receipt</a
-            >
-          </div>
-        </div>
-      </DialogContent>
-    </Dialog>
-  </div>
-</template>
-
-<script setup>
-import { ref, reactive, computed, onMounted, watch, nextTick } from "vue";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import {
-  Plus,
-  Filter,
-  Download,
-  Eye,
-  Edit,
-  Trash2,
-  DollarSign,
-  Clock,
-  CheckCircle,
-  CreditCard,
-  ChevronLeft,
-  ChevronRight,
-  Truck,
-  Users,
-  Settings,
-  Smartphone,
-  Zap,
-  Car,
-  FileText,
-} from "lucide-vue-next";
-import {
-  collection,
-  getDocs,
-  addDoc,
-  serverTimestamp,
-  query,
-  where,
-  orderBy,
-  limit,
-  doc,
-  setDoc,
-  deleteDoc,
-} from "firebase/firestore";
-import HeadersContent from "~/components/ui/HeadersContent.vue";
-
-definePageMeta({
-  middleware: "auth",
-});
-
-const config = useRuntimeConfig();
-const { user } = useAuth();
-
-// Access control computed - only manager, owner and manager can mark as paid
-const canMarkAsPaid = computed(() => {
-  // return user.value && user.value.role?.toLowerCase() === "admin";
-  return (
-    user.value &&
-    (user.value.role?.toLowerCase() === "manager" ||
-      user.value.role?.toLowerCase() === "owner")
-  );
-});
-
-// State
-const showFilters = ref(false);
-const showAddExpenseModal = ref(false);
-const editingExpense = ref(null);
-const uploadingStatus = ref("");
-const message = ref("");
-const messageType = ref("");
-const isLoading = ref(false);
-const loadingExpenses = ref(false);
-const selectedExpense = ref(null);
-const showViewExpenseModal = ref(false);
-const currentPage = ref(1);
-const itemsPerPage = ref("25");
-const modalKey = ref(0);
-
-const filters = reactive({
-  category: "all",
-  status: "all",
-  dateFrom: "",
-  dateTo: "",
-  search: "",
-});
-
-// State for expense form
-const expenseForm = reactive({
-  expenseId: "",
-  description: "",
-  category: "",
-  amount: "",
-  date: "",
-  vendor: "",
-  paymentMethod: "",
-  notes: "",
-  receiptFile: null,
-});
-
-const expenseSummary = reactive({
-  total: 0,
-  pending: 0,
-  approved: 0,
-  paid: 0,
-});
-
-const expenses = ref([]);
-
-// Function to upload receipt to Cloudinary
-const uploadToCloudinary = async (file) => {
-  try {
-    const formData = new FormData();
-    formData.append("file", file);
-    formData.append("upload_preset", config.public.cloudinaryUploadPreset);
-    formData.append("folder", "TokoKueDlillah/expenses/receipts");
-
-    const timestamp = new Date().getTime();
-    const filename = `receipt_${timestamp}_${file.name.replace(
-      /[^a-zA-Z0-9.]/g,
-      "_"
-    )}`;
-    formData.append(
-      "public_id",
-      `TokoKueDlillah/expenses/receipts/${filename}`
-    );
-
-    const response = await fetch(
-      `https://api.cloudinary.com/v1_1/${config.public.cloudinaryCloudName}/image/upload`,
-      {
-        method: "POST",
-        body: formData,
-      }
-    );
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`HTTP error! status: ${response.status} - ${errorText}`);
-    }
-
-    const data = await response.json();
-
-    if (data.error) {
-      throw new Error(data.error.message);
-    }
-
-    return data.secure_url;
-  } catch (error) {
-    console.error("Cloudinary upload error:", error);
-    throw new Error(`Failed to upload receipt: ${error.message}`);
-  }
-};
-
-// Function to generate expense ID with yearly format
-const generateExpenseId = async () => {
-  try {
-    const { $firebase } = useNuxtApp();
-    const currentYear = new Date().getFullYear();
-    const yearPrefix = `EXP-${currentYear}`;
-
-    // Query expenses from current year
-    const expensesQuery = query(
-      collection($firebase.firestore, "expenses"),
-      where("expenseId", ">=", `${yearPrefix}-001`),
-      where("expenseId", "<", `${yearPrefix}-999`),
-      orderBy("expenseId", "desc"),
-      limit(1)
-    );
-
-    const querySnapshot = await getDocs(expensesQuery);
-
-    let nextNumber = 1;
-
-    if (!querySnapshot.empty) {
-      const lastExpense = querySnapshot.docs[0].data();
-      const lastId = lastExpense.expenseId;
-      const parts = lastId.split("-");
-      if (parts.length === 3) {
-        const lastNumber = parseInt(parts[2]) || 0;
-        nextNumber = lastNumber + 1;
-      }
-    }
-
-    // Format: EXP-2025-001
-    const formattedNumber = nextNumber.toString().padStart(3, "0");
-    return `${yearPrefix}-${formattedNumber}`;
-  } catch (error) {
-    console.error("Error generating expense ID:", error);
-    // Fallback with timestamp
-    return `EXP-${new Date().getFullYear()}-${Date.now().toString().slice(-3)}`;
-  }
-};
-
-// Function to generate transaction ID
-const generateTransactionId = async () => {
-  try {
-    const { $firebase } = useNuxtApp();
-    const currentYear = new Date().getFullYear();
-    const yearPrefix = `TXN-${currentYear}`;
-
-    const transactionsQuery = query(
-      collection($firebase.firestore, "transactions"),
-      where("transactionId", ">=", `${yearPrefix}-001`),
-      where("transactionId", "<", `${yearPrefix}-999`),
-      orderBy("transactionId", "desc"),
-      limit(1)
-    );
-
-    const querySnapshot = await getDocs(transactionsQuery);
-
-    let nextNumber = 1;
-
-    if (!querySnapshot.empty) {
-      const lastTransaction = querySnapshot.docs[0].data();
-      const lastId = lastTransaction.transactionId;
-      const parts = lastId.split("-");
-      if (parts.length === 3) {
-        const lastNumber = parseInt(parts[2]) || 0;
-        nextNumber = lastNumber + 1;
-      }
-    }
-
-    const formattedNumber = nextNumber.toString().padStart(3, "0");
-    return `${yearPrefix}-${formattedNumber}`;
-  } catch (error) {
-    console.error("Error generating transaction ID:", error);
-    return `TXN-${new Date().getFullYear()}-${Date.now().toString().slice(-3)}`;
-  }
-};
-
-// Function to create transaction when expense is marked as paid
-const createTransactionFromExpense = async (expense) => {
-  try {
-    const { $firebase } = useNuxtApp();
-    const transactionId = await generateTransactionId();
-
-    const transactionData = {
-      transactionId: transactionId,
-      type: "expense",
-      category: expense.category,
-      entity: expense.vendor || "Unknown Vendor",
-      description: expense.description,
-      amount: expense.amount,
-      date: new Date(),
-      paymentMethod: expense.paymentMethod || "cash",
-      status: "completed",
-      reference: expense.expenseId,
-      notes: `Auto-generated from expense: ${expense.expenseId}`,
-      receiptUrl: expense.receiptUrl || "",
-      submittedBy:
-        user.value?.firstName + " " + user.value?.lastName ||
-        user.value?.email ||
-        "System",
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
-    };
-
-    await addDoc(
-      collection($firebase.firestore, "transactions"),
-      transactionData
-    );
-    console.log("Transaction created for expense:", expense.expenseId);
-  } catch (error) {
-    console.error("Error creating transaction from expense:", error);
-    throw error;
-  }
-};
-
-// Function to mark expense as paid
-const markAsPaid = async (expense) => {
-  if (
-    !confirm(
-      `Mark expense ${expense.expenseId} as paid? This will create a transaction record.`
-    )
-  ) {
-    return;
-  }
-
-  try {
-    const { $firebase } = useNuxtApp();
-
-    // Update expense status to paid
-    const expenseData = {
-      status: "paid",
-      paidAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
-    };
-
-    await setDoc(
-      doc($firebase.firestore, "expenses", expense.id),
-      expenseData,
-      { merge: true }
-    );
-
-    // Create corresponding transaction
-    await createTransactionFromExpense(expense);
-
-    // Update local state
-    const index = expenses.value.findIndex((e) => e.id === expense.id);
-    if (index !== -1) {
-      expenses.value[index] = {
-        ...expenses.value[index],
-        status: "paid",
-        paidAt: new Date(),
-        updatedAt: new Date(),
-      };
-    }
-
-    calculateExpenseSummary();
-    showMessage(
-      "Expense marked as paid and transaction created successfully!",
-      "success"
-    );
-  } catch (error) {
-    console.error("Error marking expense as paid:", error);
-    showMessage("Failed to mark expense as paid", "error");
-  }
-};
-
-// Function to fetch expenses from Firestore
-const fetchExpenses = async () => {
-  try {
-    loadingExpenses.value = true;
-    const { $firebase } = useNuxtApp();
-
-    const expensesQuery = query(
-      collection($firebase.firestore, "expenses"),
-      orderBy("createdAt", "desc")
-    );
-
-    const querySnapshot = await getDocs(expensesQuery);
-
-    expenses.value = querySnapshot.docs.map((doc) => {
-      const data = doc.data();
-      return {
-        id: doc.id,
-        ...data,
-        // Convert Firestore timestamp to Date
-        date: data.date?.toDate ? data.date.toDate() : new Date(data.date),
-        createdAt: data.createdAt?.toDate
-          ? data.createdAt.toDate()
-          : new Date(),
-      };
-    });
-
-    // Calculate summary
-    calculateExpenseSummary();
-
-    console.log("Fetched expenses:", expenses.value);
-  } catch (error) {
-    console.error("Error fetching expenses:", error);
-    showMessage("Failed to load expenses", "error");
-  } finally {
-    loadingExpenses.value = false;
-  }
-};
-
-// Function to calculate expense summary
-const calculateExpenseSummary = () => {
-  const currentMonth = new Date().getMonth();
-  const currentYear = new Date().getFullYear();
-
-  const thisMonthExpenses = expenses.value.filter((expense) => {
-    const expenseDate = new Date(expense.date);
-    return (
-      expenseDate.getMonth() === currentMonth &&
-      expenseDate.getFullYear() === currentYear
-    );
-  });
-
-  expenseSummary.total = thisMonthExpenses.reduce(
-    (total, expense) => total + expense.amount,
-    0
-  );
-  expenseSummary.pending = expenses.value.filter(
-    (expense) => expense.status === "pending"
-  ).length;
-  expenseSummary.approved = expenses.value.filter(
-    (expense) => expense.status === "approved"
-  ).length;
-  expenseSummary.paid = expenses.value.filter(
-    (expense) => expense.status === "paid"
-  ).length;
-};
-
-// Computed
-const filteredExpenses = computed(() => {
-  let filtered = expenses.value;
-
-  if (filters.category !== "all") {
-    filtered = filtered.filter(
-      (expense) => expense.category === filters.category
-    );
-  }
-  if (filters.status !== "all") {
-    filtered = filtered.filter((expense) => expense.status === filters.status);
-  }
-  if (filters.dateFrom) {
-    filtered = filtered.filter(
-      (expense) => new Date(expense.date) >= new Date(filters.dateFrom)
-    );
-  }
-  if (filters.dateTo) {
-    filtered = filtered.filter(
-      (expense) => new Date(expense.date) <= new Date(filters.dateTo)
-    );
-  }
-  if (filters.search) {
-    const search = filters.search.toLowerCase();
-    filtered = filtered.filter(
-      (expense) =>
-        expense.description.toLowerCase().includes(search) ||
-        expense.expenseId.toLowerCase().includes(search) ||
-        (expense.vendor && expense.vendor.toLowerCase().includes(search))
-    );
-  }
-
-  return filtered;
-});
-
-const totalPages = computed(() => {
-  return Math.ceil(
-    filteredExpenses.value.length / parseInt(itemsPerPage.value)
-  );
-});
-
-const paginatedExpenses = computed(() => {
-  const start = (currentPage.value - 1) * parseInt(itemsPerPage.value);
-  const end = start + parseInt(itemsPerPage.value);
-  return filteredExpenses.value.slice(start, end);
-});
-
-// Methods
-const formatPrice = (price) => {
-  if (!price) return "0";
-  return new Intl.NumberFormat("id-ID").format(price);
-};
-
-const formatDate = (date) => {
-  return new Date(date).toLocaleDateString("id-ID", {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-  });
-};
-
-const formatTime = (date) => {
-  return new Date(date).toLocaleTimeString("id-ID", {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-};
-
-const getCategoryLabel = (category) => {
-  const labels = {
-    materials: "Raw Materials",
-    labor: "Labor Costs",
-    operational: "Operational",
-    marketing: "Marketing",
-    utilities: "Utilities",
-    transportation: "Transportation",
-    others: "Others",
-  };
-  return labels[category] || category;
-};
-
-const getCategoryIcon = (category) => {
-  const icons = {
-    materials: Truck,
-    labor: Users,
-    operational: Settings,
-    marketing: Smartphone,
-    utilities: Zap,
-    transportation: Car,
-    others: FileText,
-  };
-  return icons[category] || FileText;
-};
-
-const getStatusVariant = (status) => {
-  const variants = {
-    pending: "secondary",
-    approved: "default",
-    paid: "outline",
-    rejected: "destructive",
-  };
-  return variants[status] || "secondary";
-};
-
-const showMessage = (msg, type) => {
-  message.value = msg;
-  messageType.value = type;
-  setTimeout(() => {
-    message.value = "";
-    messageType.value = "";
-  }, 5000);
-};
-
-const clearFilters = () => {
-  Object.assign(filters, {
-    category: "all",
-    status: "all",
-    dateFrom: "",
-    dateTo: "",
-    search: "",
-  });
-  currentPage.value = 1;
-};
-
-const applyFilters = () => {
-  currentPage.value = 1;
-  showFilters.value = false;
-};
-
-const previousPage = () => {
-  if (currentPage.value > 1) {
-    currentPage.value--;
-  }
-};
-
-const nextPage = () => {
-  if (currentPage.value < totalPages.value) {
-    currentPage.value++;
-  }
-};
-
-const viewExpense = (expense) => {
-  selectedExpense.value = expense;
-  showViewExpenseModal.value = true;
-};
-
-const editExpense = (expense) => {
-  editingExpense.value = expense;
-  Object.assign(expenseForm, {
-    description: expense.description,
-    category: expense.category,
-    amount: expense.amount,
-    date: expense.date.toISOString().split("T")[0],
-    vendor: expense.vendor || "",
-    paymentMethod: expense.paymentMethod || "",
-    notes: expense.notes || "",
-  });
-  showAddExpenseModal.value = true;
-};
-
-const deleteExpense = async (expenseId) => {
-  if (confirm("Are you sure you want to delete this expense?")) {
-    try {
-      const { $firebase } = useNuxtApp();
-      await deleteDoc(doc($firebase.firestore, "expenses", expenseId));
-
-      // Hapus dari lokal
-      expenses.value = expenses.value.filter((e) => e.id !== expenseId);
-      calculateExpenseSummary();
-
-      showMessage("Expense deleted successfully!", "success");
-    } catch (error) {
-      console.error("Delete error:", error);
-      showMessage("Failed to delete expense", "error");
-    }
-  }
-};
-
-const handleFileUpload = (event) => {
-  const file = event.target.files[0];
-  if (!file) return;
-
-  // Validate file size (5MB)
-  if (file.size > 5 * 1024 * 1024) {
-    showMessage("File size must be less than 5MB", "error");
-    return;
-  }
-
-  // Validate file type
-  const allowedTypes = [
-    "image/jpeg",
-    "image/png",
-    "image/jpg",
-    "application/pdf",
-  ];
-
-  if (!allowedTypes.includes(file.type)) {
-    showMessage("Please select a valid image (JPG, PNG) or PDF file", "error");
-    return;
-  }
-
-  expenseForm.receiptFile = file;
-};
-
-const validateForm = () => {
-  if (
-    !expenseForm.description ||
-    !expenseForm.category ||
-    !expenseForm.amount ||
-    !expenseForm.date
-  ) {
-    showMessage("Please fill in all required fields", "error");
-    return false;
-  }
-
-  if (expenseForm.amount <= 0) {
-    showMessage("Amount must be greater than 0", "error");
-    return false;
-  }
-
-  return true;
-};
-
-const saveExpense = async () => {
-  console.log("Starting saveExpense...");
-
-  if (!validateForm()) {
-    console.log("Form validation failed");
-    return;
-  }
-
-  isLoading.value = true;
-
-  try {
-    const { $firebase } = useNuxtApp();
-
-    // Generate expense ID
-    const expenseId = await generateExpenseId();
-    console.log("Generated expense ID:", expenseId);
-
-    // Upload receipt if exists
-    let receiptUrl = "";
-    if (expenseForm.receiptFile) {
-      try {
-        uploadingStatus.value = "Uploading receipt...";
-        receiptUrl = await uploadToCloudinary(expenseForm.receiptFile);
-        console.log("Receipt uploaded successfully:", receiptUrl);
-      } catch (error) {
-        console.error("Receipt upload failed:", error);
-        showMessage(`Failed to upload receipt: ${error.message}`, "error");
-        return;
-      }
-    }
-
-    // Prepare expense data
-    uploadingStatus.value = "Saving expense...";
-
-    if (editingExpense.value) {
-      // Update existing expense
-      const expenseData = {
-        description: expenseForm.description,
-        category: expenseForm.category,
-        amount: Number(expenseForm.amount),
-        date: new Date(expenseForm.date),
-        vendor: expenseForm.vendor || "",
-        paymentMethod: expenseForm.paymentMethod || "",
-        notes: expenseForm.notes || "",
-        receiptUrl: receiptUrl || editingExpense.value.receiptUrl,
-        updatedAt: serverTimestamp(),
-      };
-
-      await setDoc(
-        doc($firebase.firestore, "expenses", editingExpense.value.id),
-        expenseData,
-        { merge: true }
-      );
-
-      // Update local state
-      const index = expenses.value.findIndex(
-        (e) => e.id === editingExpense.value.id
-      );
-      if (index !== -1) {
-        expenses.value[index] = {
-          ...expenses.value[index],
-          ...expenseData,
-          date: new Date(expenseForm.date),
-          updatedAt: new Date(),
-        };
-      }
-
-      showMessage("Expense updated successfully!", "success");
-    } else {
-      // Add new expense
-      const expenseData = {
-        expenseId: expenseId,
-        description: expenseForm.description,
-        category: expenseForm.category,
-        amount: Number(expenseForm.amount),
-        date: new Date(expenseForm.date),
-        vendor: expenseForm.vendor || "",
-        paymentMethod: expenseForm.paymentMethod || "",
-        notes: expenseForm.notes || "",
-        receiptUrl: receiptUrl,
-        submittedBy:
-          user.value?.firstName + " " + user.value?.lastName ||
-          user.value?.email ||
-          "Unknown",
-        status: "pending",
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-      };
-
-      console.log("Saving new expense data:", expenseData);
-
-      const docRef = await addDoc(
-        collection($firebase.firestore, "expenses"),
-        expenseData
-      );
-
-      // Add to local state
-      const newExpense = {
-        id: docRef.id,
-        ...expenseData,
-        date: new Date(expenseForm.date),
-        createdAt: new Date(),
-      };
-
-      expenses.value.unshift(newExpense);
-      showMessage("Expense added successfully!", "success");
-    }
-
-    calculateExpenseSummary();
-
-    // Close modal dengan delay kecil untuk memastikan message muncul
-    setTimeout(async () => {
-      await closeExpenseModal();
-    }, 500);
-  } catch (error) {
-    console.error("Error saving expense:", error);
-    showMessage("Failed to save expense. Please try again.", "error");
-  } finally {
-    isLoading.value = false;
-    uploadingStatus.value = "";
-  }
-};
-
-const closeExpenseModal = async () => {
-  console.log("Closing expense modal...");
-
-  // Force close modal
-  showAddExpenseModal.value = false;
-  editingExpense.value = null;
-  uploadingStatus.value = "";
-
-  // Reset form
-  Object.assign(expenseForm, {
-    expenseId: "",
-    description: "",
-    category: "",
-    amount: "",
-    date: "",
-    vendor: "",
-    paymentMethod: "",
-    notes: "",
-    receiptFile: null,
-  });
-
-  // Reset file input dengan nextTick
-  await nextTick();
-  const fileInput = document.getElementById("receipt");
-  if (fileInput) {
-    fileInput.value = "";
-  }
-
-  modalKey.value++;
-  console.log("Modal closed, showAddExpenseModal:", showAddExpenseModal.value);
-};
-
-const handleCancelExpense = async () => {
-  console.log("Cancel button clicked");
-  await closeExpenseModal();
-};
-
-const exportExpenses = async () => {
-  try {
-    const dataToExport = filteredExpenses.value.map((expense) => ({
-      "Expense ID": expense.expenseId,
-      Description: expense.description,
-      Category: getCategoryLabel(expense.category),
-      Amount: expense.amount,
-      Date: formatDate(expense.date),
-      Vendor: expense.vendor || "",
-      Status: expense.status,
-      "Submitted By": expense.submittedBy,
-      "Payment Method": expense.paymentMethod || "",
-      Notes: expense.notes || "",
-    }));
-
-    if (dataToExport.length === 0) {
-      showMessage("No expenses to export", "error");
-      return;
-    }
-
-    const headers = Object.keys(dataToExport[0]);
-    const csvContent = [
-      headers.join(","),
-      ...dataToExport.map((row) =>
-        Object.values(row)
-          .map((value) =>
-            typeof value === "string" && value.includes(",")
-              ? `"${value}"`
-              : value
-          )
-          .join(",")
-      ),
-    ].join("\n");
-
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-    const link = document.createElement("a");
-    const url = URL.createObjectURL(blob);
-    link.setAttribute("href", url);
-    link.setAttribute(
-      "download",
-      `expenses-${new Date().toISOString().split("T")[0]}.csv`
-    );
-    link.style.visibility = "hidden";
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-
-    showMessage("Expenses exported successfully!", "success");
-  } catch (error) {
-    console.error("Export error:", error);
-    showMessage("Failed to export expenses", "error");
-  }
-};
-
-watch(showAddExpenseModal, (newVal, oldVal) => {
-  console.log(`Modal state changed from ${oldVal} to ${newVal}`);
-});
-
-onMounted(() => {
-  console.log("Expense management loaded");
-  fetchExpenses();
-});
-</script>
-
-
-Transaction.vue:
-<template>
-  <div class="container mx-auto px-4 min-w-full">
-    <!-- Header -->
-    <div class="flex items-center justify-between">
-      <HeadersContent
-        title="Transaction Management"
-        description="Monitor all financial transactions and cash flow"
-      />
-      <div class="flex space-x-2">
-        <Button variant="outline" @click="showFilters = !showFilters">
-          <Filter class="mr-2 h-4 w-4" />
-          Filters
-        </Button>
-        <Button variant="outline" @click="exportTransactions">
-          <Download class="mr-2 h-4 w-4" />
-          Export
-        </Button>
-        <Button @click="showAddTransactionModal = true">
-          <Plus class="mr-2 h-4 w-4" />
-          Add Income Transaction
-        </Button>
-      </div>
-    </div>
-
-    <!-- Alert Messages -->
-    <Alert
-      v-if="message"
-      :class="messageType === 'error' ? 'border-red-500' : 'border-green-500'"
-      class="mb-6"
-    >
-      <AlertDescription>{{ message }}</AlertDescription>
-    </Alert>
-
-    <!-- Filters -->
-    <Card v-if="showFilters" class="mb-6">
-      <CardContent class="pt-6">
-        <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
-          <div>
-            <Label>Transaction Type</Label>
-            <Select v-model="filters.type">
-              <SelectTrigger>
-                <SelectValue placeholder="All Types" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Types</SelectItem>
-                <SelectItem value="income">Income</SelectItem>
-                <SelectItem value="expense">Expense</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div>
-            <Label>Category</Label>
-            <Select v-model="filters.category">
-              <SelectTrigger>
-                <SelectValue placeholder="All Categories" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Categories</SelectItem>
-                <SelectItem value="sales">Sales</SelectItem>
-                <SelectItem value="service">Service</SelectItem>
-                <SelectItem value="commission">Commission</SelectItem>
-                <SelectItem value="rental">Rental</SelectItem>
-                <SelectItem value="investment">Investment</SelectItem>
-                <SelectItem value="materials">Materials</SelectItem>
-                <SelectItem value="labor">Labor costs</SelectItem>
-                <SelectItem value="operational">Operational</SelectItem>
-                <SelectItem value="marketing">Marketing</SelectItem>
-                <SelectItem value="utilities">Utilities</SelectItem>
-                <SelectItem value="transportation">Transportation</SelectItem>
-                <SelectItem value="others">Others</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div>
-            <Label>Status</Label>
-            <Select v-model="filters.status">
-              <SelectTrigger>
-                <SelectValue placeholder="All Status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Status</SelectItem>
-                <SelectItem value="completed">Completed</SelectItem>
-                <SelectItem value="pending">Pending</SelectItem>
-                <SelectItem value="cancelled">Cancelled</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div>
-            <Label>Date From</Label>
-            <Input type="date" v-model="filters.dateFrom" />
-          </div>
-          <div>
-            <Label>Date To</Label>
-            <Input type="date" v-model="filters.dateTo" />
-          </div>
-        </div>
-        <div class="flex justify-between items-center mt-4">
-          <div class="flex items-center space-x-2">
-            <Label>Search:</Label>
-            <Input
-              v-model="filters.search"
-              placeholder="Search transactions..."
-              class="w-64"
-            />
-          </div>
-          <div class="flex space-x-2">
-            <Button variant="outline" @click="clearFilters">Clear</Button>
-            <Button @click="applyFilters">Apply Filters</Button>
-          </div>
-        </div>
-      </CardContent>
-    </Card>
-
-    <!-- Transaction Summary Cards -->
-    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-      <Card>
-        <CardHeader
-          class="flex flex-row items-center justify-between space-y-0"
-        >
-          <CardTitle class="text-sm font-medium"> Total Income </CardTitle>
-          <TrendingUp class="text-green-500" />
-        </CardHeader>
-        <CardContent>
-          <div class="text-xl font-bold text-green-600">
-            Rp {{ formatPrice(transactionSummary.totalIncome) }}
-          </div>
-          <p class="text-xs text-muted-foreground">
-            {{ transactionSummary.incomeCount }} transactions
-          </p>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader
-          class="flex flex-row items-center justify-between space-y-0"
-        >
-          <CardTitle class="text-sm font-medium flex items-center">
-            Total Expenses
-          </CardTitle>
-          <TrendingDown class="text-red-500" />
-        </CardHeader>
-        <CardContent>
-          <div class="text-xl font-bold text-red-600">
-            Rp {{ formatPrice(transactionSummary.totalExpenses) }}
-          </div>
-          <p class="text-xs text-muted-foreground">
-            {{ transactionSummary.expenseCount }} transactions
-          </p>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader
-          class="flex flex-row items-center justify-between space-y-0"
-        >
-          <CardTitle class="text-sm font-medium"> Net Flow </CardTitle>
-          <DollarSign />
-        </CardHeader>
-        <CardContent>
-          <div
-            class="text-xl font-bold"
-            :class="
-              transactionSummary.netFlow >= 0
-                ? 'text-green-600'
-                : 'text-red-600'
-            "
-          >
-            Rp {{ formatPrice(transactionSummary.netFlow) }}
-          </div>
-          <p class="text-xs text-muted-foreground">Current period</p>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader
-          class="flex flex-row items-center justify-between space-y-0"
-        >
-          <CardTitle class="text-sm font-medium"> Pending </CardTitle>
-          <Clock />
-        </CardHeader>
-        <CardContent>
-          <div class="text-xl font-bold text-orange-600">
-            {{ transactionSummary.pendingCount }}
-          </div>
-          <p class="text-xs text-muted-foreground">Awaiting completion</p>
-        </CardContent>
-      </Card>
-    </div>
-
-    <!-- Transactions Table -->
-    <Card class="mb-4">
-      <CardHeader class="flex flex-row items-center justify-between">
-        <div>
-          <CardTitle>Transaction History</CardTitle>
-          <CardDescription>
-            Showing {{ filteredTransactions.length }} of
-            {{ transactions.length }} transactions
-          </CardDescription>
-        </div>
-        <div class="flex items-center space-x-2">
-          <Select v-model="itemsPerPage">
-            <SelectTrigger class="w-20">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="10">10</SelectItem>
-              <SelectItem value="25">25</SelectItem>
-              <SelectItem value="50">50</SelectItem>
-              <SelectItem value="100">100</SelectItem>
-            </SelectContent>
-          </Select>
-          <span class="text-sm text-muted-foreground">per page</span>
-        </div>
-      </CardHeader>
-      <CardContent>
-        <div v-if="loadingTransactions" class="text-center py-8">
-          <div
-            class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"
-          ></div>
-          <p class="mt-2 text-sm text-muted-foreground">
-            Loading transactions...
-          </p>
-        </div>
-        <Table v-else>
-          <TableHeader>
-            <TableRow>
-              <TableHead class="w-32">Transaction ID</TableHead>
-              <TableHead>Description</TableHead>
-              <TableHead>Type</TableHead>
-              <TableHead>Category</TableHead>
-              <TableHead>Amount</TableHead>
-              <TableHead>Date</TableHead>
-              <TableHead>Payment Method</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            <TableRow
-              v-for="transaction in paginatedTransactions"
-              :key="transaction.id"
-            >
-              <TableCell class="font-mono text-sm">
-                {{ transaction.transactionId }}
-              </TableCell>
-              <TableCell>
-                <div class="flex items-center space-x-3">
-                  <div
-                    class="p-2 rounded-full"
-                    :class="
-                      transaction.type === 'income'
-                        ? 'bg-green-100'
-                        : 'bg-red-100'
-                    "
-                  >
-                    <component
-                      :is="getTransactionIcon(transaction.category)"
-                      :class="
-                        transaction.type === 'income'
-                          ? 'text-green-600'
-                          : 'text-red-600'
-                      "
-                      class="h-4 w-4"
-                    />
-                  </div>
-                  <div>
-                    <div class="font-medium">{{ transaction.description }}</div>
-                    <div
-                      v-if="transaction.entity"
-                      class="text-sm text-muted-foreground"
-                    >
-                      {{ transaction.entity }}
-                    </div>
-                  </div>
-                </div>
-              </TableCell>
-              <TableCell>
-                <Badge
-                  :variant="
-                    transaction.type === 'income' ? 'default' : 'secondary'
-                  "
-                >
-                  {{ transaction.type }}
-                </Badge>
-              </TableCell>
-              <TableCell>
-                <Badge variant="outline">{{
-                  getCategoryLabel(transaction.category)
-                }}</Badge>
-              </TableCell>
-              <TableCell
-                class="font-bold"
-                :class="
-                  transaction.type === 'income'
-                    ? 'text-green-600'
-                    : 'text-red-600'
-                "
-              >
-                {{ transaction.type === "income" ? "+" : "-" }}Rp
-                {{ formatPrice(transaction.amount) }}
-              </TableCell>
-              <TableCell>
-                <div class="text-sm">
-                  {{ formatDate(transaction.date) }}
-                </div>
-                <div class="text-xs text-muted-foreground">
-                  {{ formatTime(transaction.date) }}
-                </div>
-              </TableCell>
-              <TableCell>
-                <div class="flex items-center space-x-2">
-                  <component
-                    :is="getPaymentIcon(transaction.paymentMethod)"
-                    class="h-4 w-4 text-muted-foreground"
-                  />
-                  <span class="text-sm">{{
-                    getPaymentMethodLabel(transaction.paymentMethod)
-                  }}</span>
-                </div>
-              </TableCell>
-              <TableCell>
-                <Badge :variant="getStatusVariant(transaction.status)">
-                  {{ transaction.status }}
-                </Badge>
-              </TableCell>
-              <TableCell>
-                <div class="flex space-x-2">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    @click="viewTransaction(transaction)"
-                  >
-                    <Eye class="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    @click="editTransaction(transaction)"
-                  >
-                    <Edit class="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    @click="deleteTransaction(transaction.id)"
-                    class="text-red-600"
-                  >
-                    <Trash2 class="h-4 w-4" />
-                  </Button>
-                </div>
-              </TableCell>
-            </TableRow>
-          </TableBody>
-        </Table>
-
-        <!-- Pagination -->
-        <div class="flex items-center justify-between mt-4">
-          <div class="text-sm text-muted-foreground">
-            Showing {{ (currentPage - 1) * parseInt(itemsPerPage) + 1 }} to
-            {{
-              Math.min(
-                currentPage * parseInt(itemsPerPage),
-                filteredTransactions.length
-              )
-            }}
-            of {{ filteredTransactions.length }} results
-          </div>
-          <div class="flex space-x-2">
-            <Button
-              variant="outline"
-              size="sm"
-              @click="previousPage"
-              :disabled="currentPage === 1"
-            >
-              <ChevronLeft class="h-4 w-4" />
-              Previous
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              @click="nextPage"
-              :disabled="currentPage === totalPages"
-            >
-              Next
-              <ChevronRight class="h-4 w-4" />
-            </Button>
-          </div>
-        </div>
-      </CardContent>
-    </Card>
-
-    <!-- Add/Edit Transaction Modal -->
-    <Dialog v-model:open="showAddTransactionModal" :key="modalKey">
-      <DialogContent class="max-w-4xl max-h-[90vh] overflow-y-auto min-w-2xl">
-        <DialogHeader>
-          <DialogTitle>{{
-            editingTransaction
-              ? "Edit Income Transaction"
-              : "Add New Income Transaction"
-          }}</DialogTitle>
-          <p class="text-sm text-muted-foreground">
-            Record income transactions like sales, services, commissions, etc.
-          </p>
-        </DialogHeader>
-
-        <div class="max-h-[70vh] overflow-y-auto px-1">
-          <form @submit.prevent="saveTransaction" class="space-y-4">
-            <!-- Loading Status -->
-            <div v-if="uploadingStatus" class="text-center py-4">
-              <div
-                class="animate-spin rounded-full h-6 w-6 border-b-2 border-green-600 mx-auto"
-              ></div>
-              <p class="mt-2 text-sm text-muted-foreground">
-                {{ uploadingStatus }}
-              </p>
-            </div>
-
-            <div class="grid grid-cols-2 gap-4">
-              <div>
-                <Label for="category" class="mb-2">Income Category *</Label>
-                <Select
-                  v-model="transactionForm.category"
-                  :disabled="isLoading"
-                  required
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select income category" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="sales">Sales Revenue</SelectItem>
-                    <SelectItem value="service">Service Income</SelectItem>
-                    <SelectItem value="commission">Commission</SelectItem>
-                    <SelectItem value="rental">Rental Income</SelectItem>
-                    <SelectItem value="investment"
-                      >Investment Returns</SelectItem
-                    >
-                    <SelectItem value="others">Other Income</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label for="amount" class="mb-2">Amount (Rp) *</Label>
-                <Input
-                  id="amount"
-                  type="number"
-                  v-model="transactionForm.amount"
-                  :disabled="isLoading"
-                  placeholder="0"
-                  required
-                />
-              </div>
-            </div>
-
-            <div class="grid grid-cols-2 gap-4">
-              <div>
-                <Label for="entity" class="mb-2">Customer/Client *</Label>
-                <Input
-                  id="entity"
-                  v-model="transactionForm.entity"
-                  :disabled="isLoading"
-                  placeholder="Customer or client name"
-                  required
-                />
-              </div>
-              <div>
-                <Label for="description" class="mb-2">Description *</Label>
-                <Input
-                  id="description"
-                  v-model="transactionForm.description"
-                  :disabled="isLoading"
-                  placeholder="Brief description of income"
-                  required
-                />
-              </div>
-            </div>
-
-            <div class="grid grid-cols-2 gap-4">
-              <div>
-                <Label for="date" class="mb-2">Transaction Date *</Label>
-                <Input
-                  id="date"
-                  type="datetime-local"
-                  v-model="transactionForm.date"
-                  :disabled="isLoading"
-                  required
-                />
-              </div>
-              <div>
-                <Label for="paymentMethod" class="mb-2">Payment Method *</Label>
-                <Select
-                  v-model="transactionForm.paymentMethod"
-                  :disabled="isLoading"
-                  required
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="How was payment received?" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="cash">Cash</SelectItem>
-                    <SelectItem value="bank_transfer">Bank Transfer</SelectItem>
-                    <SelectItem value="credit_card">Credit Card</SelectItem>
-                    <SelectItem value="debit_card">Debit Card</SelectItem>
-                    <SelectItem value="check">Check</SelectItem>
-                    <SelectItem value="digital_wallet"
-                      >Digital Wallet</SelectItem
-                    >
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            <div class="grid grid-cols-2 gap-4">
-              <div>
-                <Label for="status" class="mb-2">Transaction Status</Label>
-                <Select v-model="transactionForm.status" :disabled="isLoading">
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="completed">Completed</SelectItem>
-                    <SelectItem value="pending">Pending</SelectItem>
-                    <SelectItem value="cancelled">Cancelled</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label for="reference" class="mb-2">Reference Number</Label>
-                <Input
-                  id="reference"
-                  v-model="transactionForm.reference"
-                  :disabled="isLoading"
-                  placeholder="INV-2025-001, ORD-001, etc."
-                />
-              </div>
-            </div>
-
-            <div>
-              <Label for="notes" class="mb-2">Additional Notes</Label>
-              <Textarea
-                id="notes"
-                v-model="transactionForm.notes"
-                :disabled="isLoading"
-                rows="3"
-                placeholder="Any additional information about this income transaction..."
-              />
-            </div>
-
-            <div>
-              <Label for="receipt" class="mb-2">Receipt/Invoice</Label>
-              <Input
-                id="receipt"
-                type="file"
-                accept="image/*,application/pdf"
-                :disabled="isLoading"
-                @change="handleFileUpload"
-              />
-              <p class="text-sm text-muted-foreground mt-1">
-                Maximum file size: 5MB. Supported formats: JPG, PNG, PDF
-              </p>
-            </div>
-          </form>
-        </div>
-
-        <div class="flex justify-end space-x-2 pt-4 border-t">
-          <Button
-            type="button"
-            variant="outline"
-            :disabled="isLoading"
-            @click="handleCancelTransaction"
-          >
-            Cancel
-          </Button>
-          <Button
-            type="submit"
-            :disabled="isLoading"
-            @click="saveTransaction"
-            class="bg-green-600 hover:bg-green-700"
-          >
-            {{ editingTransaction ? "Update" : "Save" }} Income Transaction
-          </Button>
-        </div>
-      </DialogContent>
-    </Dialog>
-
-    <!-- View Transaction Modal -->
-    <Dialog v-model:open="showViewModal">
-      <DialogContent class="max-w-2xl">
-        <DialogHeader>
-          <DialogTitle>Transaction Details</DialogTitle>
-        </DialogHeader>
-        <div v-if="selectedTransaction" class="space-y-4">
-          <div class="grid grid-cols-2 gap-4">
-            <div>
-              <Label class="font-medium mb-2">Transaction ID</Label>
-              <p class="font-mono">{{ selectedTransaction.transactionId }}</p>
-            </div>
-            <div>
-              <Label class="font-medium mb-2">Type</Label>
-              <Badge
-                :variant="
-                  selectedTransaction.type === 'income'
-                    ? 'default'
-                    : 'secondary'
-                "
-              >
-                {{ selectedTransaction.type }}
-              </Badge>
-            </div>
-          </div>
-          <div class="grid grid-cols-2 gap-4">
-            <div>
-              <Label class="font-medium mb-2">Amount</Label>
-              <p
-                class="text-lg font-bold"
-                :class="
-                  selectedTransaction.type === 'income'
-                    ? 'text-green-600'
-                    : 'text-red-600'
-                "
-              >
-                {{ selectedTransaction.type === "income" ? "+" : "-" }}Rp
-                {{ formatPrice(selectedTransaction.amount) }}
-              </p>
-            </div>
-            <div>
-              <Label class="font-medium mb-2">Status</Label>
-              <Badge :variant="getStatusVariant(selectedTransaction.status)">
-                {{ selectedTransaction.status }}
-              </Badge>
-            </div>
-          </div>
-          <div class="grid grid-cols-2 gap-4">
-            <div>
-              <Label class="font-medium mb-2">Customer/Client</Label>
-              <p>{{ selectedTransaction.entity }}</p>
-            </div>
-            <div>
-              <Label class="font-medium mb-2">Description</Label>
-              <p>{{ selectedTransaction.description }}</p>
-            </div>
-          </div>
-          <div class="grid grid-cols-2 gap-4">
-            <div>
-              <Label class="font-medium mb-2">Category</Label>
-              <p>{{ getCategoryLabel(selectedTransaction.category) }}</p>
-            </div>
-            <div>
-              <Label class="font-medium mb-2">Payment Method</Label>
-              <p>
-                {{ getPaymentMethodLabel(selectedTransaction.paymentMethod) }}
-              </p>
-            </div>
-          </div>
-          <div class="grid grid-cols-2 gap-4">
-            <div>
-              <Label class="font-medium mb-2">Date</Label>
-              <p>
-                {{ formatDate(selectedTransaction.date) }}
-                {{ formatTime(selectedTransaction.date) }}
-              </p>
-            </div>
-            <div v-if="selectedTransaction.reference">
-              <Label class="font-medium mb-2">Reference</Label>
-              <p>{{ selectedTransaction.reference }}</p>
-            </div>
-          </div>
-          <div v-if="selectedTransaction.notes">
-            <Label class="font-medium mb-2">Notes</Label>
-            <p class="text-sm text-muted-foreground">
-              {{ selectedTransaction.notes }}
-            </p>
-          </div>
-          <div v-if="selectedTransaction.receiptUrl">
-            <Label class="font-medium mb-2">Receipt/Invoice</Label>
-            <a
-              :href="selectedTransaction.receiptUrl"
-              target="_blank"
-              class="text-blue-600 underline"
-              >View Receipt</a
-            >
-          </div>
-        </div>
-      </DialogContent>
-    </Dialog>
-  </div>
-</template>
-
-<script setup>
-import { ref, reactive, computed, onMounted, watch, nextTick } from "vue";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import {
-  Plus,
-  Filter,
-  Download,
-  Eye,
-  Edit,
-  Trash2,
-  TrendingUp,
-  TrendingDown,
-  DollarSign,
-  Clock,
-  ChevronLeft,
-  ChevronRight,
-  ShoppingCart,
-  Truck,
-  Users,
-  Settings,
-  CreditCard,
-  Banknote,
-  Smartphone,
-  Building,
-  FileText,
-  Zap,
-  Car,
-  Briefcase,
-  Home,
-  TrendingUpIcon,
-} from "lucide-vue-next";
-import HeadersContent from "~/components/ui/HeadersContent.vue";
-import {
-  collection,
-  getDocs,
-  addDoc,
-  serverTimestamp,
-  query,
-  where,
-  orderBy,
-  limit,
-  doc,
-  setDoc,
-  deleteDoc,
-} from "firebase/firestore";
-
-definePageMeta({
-  middleware: "auth",
-});
-
-const config = useRuntimeConfig();
-const { user } = useAuth();
-
-// State
-const showFilters = ref(false);
-const showAddTransactionModal = ref(false);
-const showViewModal = ref(false);
-const editingTransaction = ref(null);
-const selectedTransaction = ref(null);
-const currentPage = ref(1);
-const itemsPerPage = ref("25");
-const uploadingStatus = ref("");
-const message = ref("");
-const messageType = ref("");
-const isLoading = ref(false);
-const loadingTransactions = ref(false);
-const modalKey = ref(0);
-
-const filters = reactive({
-  type: "all",
-  category: "all",
-  status: "all",
-  dateFrom: "",
-  dateTo: "",
-  search: "",
-});
-
-// Form State - Default to income
-const transactionForm = reactive({
-  type: "income",
-  category: "",
-  entity: "",
-  description: "",
-  amount: "",
-  date: "",
-  paymentMethod: "",
-  status: "completed",
-  reference: "",
-  notes: "",
-  receiptFile: null,
-});
-
-const transactions = ref([]);
-
-// Function to upload receipt to Cloudinary
-const uploadToCloudinary = async (file) => {
-  try {
-    const formData = new FormData();
-    formData.append("file", file);
-    formData.append("upload_preset", config.public.cloudinaryUploadPreset);
-    formData.append("folder", "TokoKueDlillah/transactions/receipts");
-
-    const timestamp = new Date().getTime();
-    const filename = `receipt_${timestamp}_${file.name.replace(
-      /[^a-zA-Z0-9.]/g,
-      "_"
-    )}`;
-    formData.append(
-      "public_id",
-      `TokoKueDlillah/transactions/receipts/${filename}`
-    );
-
-    const response = await fetch(
-      `https://api.cloudinary.com/v1_1/${config.public.cloudinaryCloudName}/image/upload`,
-      {
-        method: "POST",
-        body: formData,
-      }
-    );
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`HTTP error! status: ${response.status} - ${errorText}`);
-    }
-
-    const data = await response.json();
-
-    if (data.error) {
-      throw new Error(data.error.message);
-    }
-
-    return data.secure_url;
-  } catch (error) {
-    console.error("Cloudinary upload error:", error);
-    throw new Error(`Failed to upload receipt: ${error.message}`);
-  }
-};
-
-// Function to generate transaction ID
-const generateTransactionId = async () => {
-  try {
-    const { $firebase } = useNuxtApp();
-    const currentYear = new Date().getFullYear();
-    const yearPrefix = `TXN-${currentYear}`;
-
-    const transactionsQuery = query(
-      collection($firebase.firestore, "transactions"),
-      where("transactionId", ">=", `${yearPrefix}-001`),
-      where("transactionId", "<", `${yearPrefix}-999`),
-      orderBy("transactionId", "desc"),
-      limit(1)
-    );
-
-    const querySnapshot = await getDocs(transactionsQuery);
-
-    let nextNumber = 1;
-
-    if (!querySnapshot.empty) {
-      const lastTransaction = querySnapshot.docs[0].data();
-      const lastId = lastTransaction.transactionId;
-      const parts = lastId.split("-");
-      if (parts.length === 3) {
-        const lastNumber = parseInt(parts[2]) || 0;
-        nextNumber = lastNumber + 1;
-      }
-    }
-
-    const formattedNumber = nextNumber.toString().padStart(3, "0");
-    return `${yearPrefix}-${formattedNumber}`;
-  } catch (error) {
-    console.error("Error generating transaction ID:", error);
-    return `TXN-${new Date().getFullYear()}-${Date.now().toString().slice(-3)}`;
-  }
-};
-
-// Function to fetch transactions from Firestore
-const fetchTransactions = async () => {
-  try {
-    loadingTransactions.value = true;
-    const { $firebase } = useNuxtApp();
-
-    const transactionsQuery = query(
-      collection($firebase.firestore, "transactions"),
-      orderBy("createdAt", "desc")
-    );
-
-    const querySnapshot = await getDocs(transactionsQuery);
-
-    transactions.value = querySnapshot.docs.map((doc) => {
-      const data = doc.data();
-      return {
-        id: doc.id,
-        ...data,
-        date: data.date?.toDate ? data.date.toDate() : new Date(data.date),
-        createdAt: data.createdAt?.toDate
-          ? data.createdAt.toDate()
-          : new Date(),
-      };
-    });
-
-    console.log("Fetched transactions:", transactions.value);
-  } catch (error) {
-    console.error("Error fetching transactions:", error);
-    showMessage("Failed to load transactions", "error");
-  } finally {
-    loadingTransactions.value = false;
-  }
-};
-
-// Computed
-const filteredTransactions = computed(() => {
-  let filtered = transactions.value;
-
-  if (filters.type !== "all") {
-    filtered = filtered.filter((t) => t.type === filters.type);
-  }
-  if (filters.category !== "all") {
-    filtered = filtered.filter((t) => t.category === filters.category);
-  }
-  if (filters.status !== "all") {
-    filtered = filtered.filter((t) => t.status === filters.status);
-  }
-  if (filters.dateFrom) {
-    filtered = filtered.filter(
-      (t) => new Date(t.date) >= new Date(filters.dateFrom)
-    );
-  }
-  if (filters.dateTo) {
-    filtered = filtered.filter(
-      (t) => new Date(t.date) <= new Date(filters.dateTo)
-    );
-  }
-  if (filters.search) {
-    const search = filters.search.toLowerCase();
-    filtered = filtered.filter(
-      (t) =>
-        t.description.toLowerCase().includes(search) ||
-        t.transactionId.toLowerCase().includes(search) ||
-        (t.reference && t.reference.toLowerCase().includes(search)) ||
-        (t.entity && t.entity.toLowerCase().includes(search))
-    );
-  }
-
-  return filtered.sort((a, b) => new Date(b.date) - new Date(a.date));
-});
-
-const totalPages = computed(() => {
-  return Math.ceil(
-    filteredTransactions.value.length / parseInt(itemsPerPage.value)
-  );
-});
-
-const paginatedTransactions = computed(() => {
-  const start = (currentPage.value - 1) * parseInt(itemsPerPage.value);
-  const end = start + parseInt(itemsPerPage.value);
-  return filteredTransactions.value.slice(start, end);
-});
-
-const transactionSummary = computed(() => {
-  const income = filteredTransactions.value.filter((t) => t.type === "income");
-  const expenses = filteredTransactions.value.filter(
-    (t) => t.type === "expense"
-  );
-  const pending = filteredTransactions.value.filter(
-    (t) => t.status === "pending"
-  );
-
-  const totalIncome = income.reduce((sum, t) => sum + t.amount, 0);
-  const totalExpenses = expenses.reduce((sum, t) => sum + t.amount, 0);
-
-  return {
-    totalIncome,
-    totalExpenses,
-    netFlow: totalIncome - totalExpenses,
-    incomeCount: income.length,
-    expenseCount: expenses.length,
-    pendingCount: pending.length,
-  };
-});
-
-// Methods
-const formatPrice = (price) => {
-  if (!price) return "0";
-  return new Intl.NumberFormat("id-ID").format(price);
-};
-
-const formatDate = (date) => {
-  return new Date(date).toLocaleDateString("id-ID", {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-  });
-};
-
-const formatTime = (date) => {
-  return new Date(date).toLocaleTimeString("id-ID", {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-};
-
-const getCategoryLabel = (category) => {
-  const labels = {
-    sales: "Sales Revenue",
-    service: "Service Income",
-    commission: "Commission",
-    rental: "Rental Income",
-    investment: "Investment Returns",
-    materials: "Materials",
-    labor: "Labor",
-    operational: "Operational",
-    marketing: "Marketing",
-    utilities: "Utilities",
-    transportation: "Transportation",
-    others: "Others",
-  };
-  return labels[category] || category;
-};
-
-const getPaymentMethodLabel = (method) => {
-  const labels = {
-    cash: "Cash",
-    bank_transfer: "Bank Transfer",
-    credit_card: "Credit Card",
-    debit_card: "Debit Card",
-    check: "Check",
-    digital_wallet: "Digital Wallet",
-  };
-  return labels[method] || method;
-};
-
-const getStatusVariant = (status) => {
-  const variants = {
-    completed: "default",
-    pending: "secondary",
-    cancelled: "destructive",
-  };
-  return variants[status] || "secondary";
-};
-
-const getTransactionIcon = (category) => {
-  const icons = {
-    sales: ShoppingCart,
-    service: Briefcase,
-    commission: TrendingUpIcon,
-    rental: Home,
-    investment: TrendingUp,
-    materials: Truck,
-    labor: Users,
-    operational: Settings,
-    marketing: Smartphone,
-    utilities: Zap,
-    transportation: Car,
-    others: FileText,
-  };
-  return icons[category] || FileText;
-};
-
-const getPaymentIcon = (method) => {
-  const icons = {
-    cash: Banknote,
-    bank_transfer: Building,
-    credit_card: CreditCard,
-    debit_card: CreditCard,
-    check: FileText,
-    digital_wallet: Smartphone,
-  };
-  return icons[method] || CreditCard;
-};
-
-const showMessage = (msg, type) => {
-  message.value = msg;
-  messageType.value = type;
-  setTimeout(() => {
-    message.value = "";
-    messageType.value = "";
-  }, 5000);
-};
-
-const clearFilters = () => {
-  Object.assign(filters, {
-    type: "all",
-    category: "all",
-    status: "all",
-    dateFrom: "",
-    dateTo: "",
-    search: "",
-  });
-  currentPage.value = 1;
-};
-
-const applyFilters = () => {
-  currentPage.value = 1;
-  showFilters.value = false;
-};
-
-const previousPage = () => {
-  if (currentPage.value > 1) {
-    currentPage.value--;
-  }
-};
-
-const nextPage = () => {
-  if (currentPage.value < totalPages.value) {
-    currentPage.value++;
-  }
-};
-
-const viewTransaction = (transaction) => {
-  selectedTransaction.value = transaction;
-  showViewModal.value = true;
-};
-
-const editTransaction = (transaction) => {
-  editingTransaction.value = transaction;
-  Object.assign(transactionForm, {
-    type: transaction.type,
-    category: transaction.category,
-    entity: transaction.entity,
-    description: transaction.description,
-    amount: transaction.amount,
-    date: new Date(transaction.date).toISOString().slice(0, 16),
-    paymentMethod: transaction.paymentMethod,
-    status: transaction.status,
-    reference: transaction.reference || "",
-    notes: transaction.notes || "",
-  });
-  showAddTransactionModal.value = true;
-};
-
-const deleteTransaction = async (transactionId) => {
-  if (confirm("Are you sure you want to delete this transaction?")) {
-    try {
-      const { $firebase } = useNuxtApp();
-      await deleteDoc(doc($firebase.firestore, "transactions", transactionId));
-
-      transactions.value = transactions.value.filter(
-        (t) => t.id !== transactionId
-      );
-      showMessage("Transaction deleted successfully!", "success");
-    } catch (error) {
-      console.error("Delete error:", error);
-      showMessage("Failed to delete transaction", "error");
-    }
-  }
-};
-
-const handleFileUpload = (event) => {
-  const file = event.target.files[0];
-  if (!file) return;
-
-  if (file.size > 5 * 1024 * 1024) {
-    showMessage("File size must be less than 5MB", "error");
-    return;
-  }
-
-  const allowedTypes = [
-    "image/jpeg",
-    "image/png",
-    "image/jpg",
-    "application/pdf",
-  ];
-
-  if (!allowedTypes.includes(file.type)) {
-    showMessage("Please select a valid image (JPG, PNG) or PDF file", "error");
-    return;
-  }
-
-  transactionForm.receiptFile = file;
-};
-
-const validateForm = () => {
-  if (
-    !transactionForm.category ||
-    !transactionForm.entity ||
-    !transactionForm.description ||
-    !transactionForm.amount ||
-    !transactionForm.date ||
-    !transactionForm.paymentMethod
-  ) {
-    showMessage("Please fill in all required fields", "error");
-    return false;
-  }
-
-  if (transactionForm.amount <= 0) {
-    showMessage("Amount must be greater than 0", "error");
-    return false;
-  }
-
-  return true;
-};
-
-const saveTransaction = async () => {
-  console.log("Starting saveTransaction...");
-
-  if (!validateForm()) {
-    console.log("Form validation failed");
-    return;
-  }
-
-  isLoading.value = true;
-
-  try {
-    const { $firebase } = useNuxtApp();
-
-    // Generate transaction ID
-    const transactionId = await generateTransactionId();
-    console.log("Generated transaction ID:", transactionId);
-
-    // Upload receipt if exists
-    let receiptUrl = "";
-    if (transactionForm.receiptFile) {
-      try {
-        uploadingStatus.value = "Uploading receipt...";
-        receiptUrl = await uploadToCloudinary(transactionForm.receiptFile);
-        console.log("Receipt uploaded successfully:", receiptUrl);
-      } catch (error) {
-        console.error("Receipt upload failed:", error);
-        showMessage(`Failed to upload receipt: ${error.message}`, "error");
-        return;
-      }
-    }
-
-    uploadingStatus.value = "Saving transaction...";
-
-    if (editingTransaction.value) {
-      // Update existing transaction
-      const transactionData = {
-        type: "income", // Force income type
-        category: transactionForm.category,
-        entity: transactionForm.entity,
-        description: transactionForm.description,
-        amount: Number(transactionForm.amount),
-        date: new Date(transactionForm.date),
-        paymentMethod: transactionForm.paymentMethod,
-        status: transactionForm.status,
-        reference: transactionForm.reference || "",
-        notes: transactionForm.notes || "",
-        receiptUrl: receiptUrl || editingTransaction.value.receiptUrl,
-        updatedAt: serverTimestamp(),
-      };
-
-      await setDoc(
-        doc($firebase.firestore, "transactions", editingTransaction.value.id),
-        transactionData,
-        { merge: true }
-      );
-
-      // Update local state
-      const index = transactions.value.findIndex(
-        (t) => t.id === editingTransaction.value.id
-      );
-      if (index !== -1) {
-        transactions.value[index] = {
-          ...transactions.value[index],
-          ...transactionData,
-          date: new Date(transactionForm.date),
-          updatedAt: new Date(),
-        };
-      }
-
-      showMessage("Income transaction updated successfully!", "success");
-    } else {
-      // Add new transaction
-      const transactionData = {
-        transactionId: transactionId,
-        type: "income", // Force income type
-        category: transactionForm.category,
-        entity: transactionForm.entity,
-        description: transactionForm.description,
-        amount: Number(transactionForm.amount),
-        date: new Date(transactionForm.date),
-        paymentMethod: transactionForm.paymentMethod,
-        status: transactionForm.status,
-        reference: transactionForm.reference || "",
-        notes: transactionForm.notes || "",
-        receiptUrl: receiptUrl,
-        submittedBy:
-          user.value?.firstName + " " + user.value?.lastName ||
-          user.value?.email ||
-          "Unknown",
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-      };
-
-      console.log("Saving new income transaction data:", transactionData);
-
-      const docRef = await addDoc(
-        collection($firebase.firestore, "transactions"),
-        transactionData
-      );
-
-      // Add to local state
-      const newTransaction = {
-        id: docRef.id,
-        ...transactionData,
-        date: new Date(transactionForm.date),
-        createdAt: new Date(),
-      };
-
-      transactions.value.unshift(newTransaction);
-      showMessage("Income transaction added successfully!", "success");
-    }
-
-    // Close modal with delay
-    setTimeout(async () => {
-      await closeTransactionModal();
-    }, 500);
-  } catch (error) {
-    console.error("Error saving transaction:", error);
-    showMessage("Failed to save transaction. Please try again.", "error");
-  } finally {
-    isLoading.value = false;
-    uploadingStatus.value = "";
-  }
-};
-
-const closeTransactionModal = async () => {
-  console.log("Closing transaction modal...");
-
-  showAddTransactionModal.value = false;
-  editingTransaction.value = null;
-  uploadingStatus.value = "";
-
-  // Reset form
-  Object.assign(transactionForm, {
-    type: "income",
-    category: "",
-    entity: "",
-    description: "",
-    amount: "",
-    date: "",
-    paymentMethod: "",
-    status: "completed",
-    reference: "",
-    notes: "",
-    receiptFile: null,
-  });
-
-  // Reset file input
-  await nextTick();
-  const fileInput = document.getElementById("receipt");
-  if (fileInput) {
-    fileInput.value = "";
-  }
-
-  modalKey.value++;
-};
-
-const handleCancelTransaction = async () => {
-  console.log("Cancel button clicked");
-  await closeTransactionModal();
-};
-
-const exportTransactions = () => {
-  try {
-    // Prepare CSV data
-    const csvData = [
-      [
-        "Transaction ID",
-        "Date",
-        "Type",
-        "Category",
-        "Description",
-        "Customer/Client",
-        "Amount",
-        "Payment Method",
-        "Status",
-        "Reference",
-        "Notes",
-      ],
-    ];
-
-    filteredTransactions.value.forEach((transaction) => {
-      csvData.push([
-        transaction.transactionId,
-        formatDate(transaction.date),
-        transaction.type,
-        getCategoryLabel(transaction.category),
-        transaction.description,
-        transaction.entity,
-        transaction.amount,
-        getPaymentMethodLabel(transaction.paymentMethod),
-        transaction.status,
-        transaction.reference || "",
-        transaction.notes || "",
-      ]);
-    });
-
-    // Convert to CSV string
-    const csvContent = csvData
-      .map((row) => row.map((field) => `"${field}"`).join(","))
-      .join("\n");
-
-    // Create and download file
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-    const link = document.createElement("a");
-    const url = URL.createObjectURL(blob);
-    link.setAttribute("href", url);
-    link.setAttribute(
-      "download",
-      `transactions_${new Date().toISOString().split("T")[0]}.csv`
-    );
-    link.style.visibility = "hidden";
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-
-    showMessage("Transactions exported successfully!", "success");
-  } catch (error) {
-    console.error("Export error:", error);
-    showMessage("Failed to export transactions", "error");
-  }
-};
-
-watch(showAddTransactionModal, (newVal, oldVal) => {
-  console.log(`Modal state changed from ${oldVal} to ${newVal}`);
-});
-
-onMounted(() => {
-  console.log("Transaction management loaded");
-  fetchTransactions();
-});
-</script>
-
-Approval Expenses:
-<template>
-  <div class="container mx-auto px-4 min-w-full">
-    <!-- Access Control Check -->
-    <div
-      v-if="!hasApprovalAccess"
-      class="flex items-center justify-center min-h-[60vh]"
-    >
-      <Card class="max-w-md text-center">
-        <CardContent class="pt-6">
-          <ShieldX class="h-16 w-16 text-red-500 mx-auto mb-4" />
-          <h2 class="text-xl font-bold text-red-600 mb-2">Access Denied</h2>
-          <p class="text-muted-foreground mb-4">
-            You don't have permission to access this page. Only Owners and
-            Managers can approve expenses.
-          </p>
-          <p class="text-sm text-muted-foreground">
-            Your current role: <Badge variant="outline">{{ user?.role }}</Badge>
-          </p>
-          <Button @click="$router.push('/admin/finance')" class="mt-4">
-            Back to Finance Dashboard
-          </Button>
-        </CardContent>
-      </Card>
-    </div>
-
-    <!-- Approval Interface (Only for Owner/Manager) -->
-    <div v-else>
-      <!-- Header -->
-      <div class="flex items-center justify-between">
-        <HeadersContent
-          title="Expense Approval Center"
-          description="Review and approve pending expense requests"
+    <!-- Search and Filter -->
+    <div class="flex items-center gap-4 mb-4 px-4">
+      <div class="relative flex-1 w-full">
+        <Search class="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+        <Input
+          v-model="searchQuery"
+          placeholder="Search orders..."
+          class="pl-8"
+          @input="filterOrders"
         />
-        <div class="flex items-center space-x-2">
-          <Badge variant="outline" class="px-3 py-1">
-            <Shield class="mr-1 h-3 w-3" />
-            {{ user?.role }}
-          </Badge>
-          <Button variant="outline" @click="refreshData">
-            <RefreshCw class="mr-2 h-4 w-4" />
-            Refresh
-          </Button>
-        </div>
       </div>
 
-      <!-- Alert Messages -->
-      <Alert
-        v-if="message"
-        :class="messageType === 'error' ? 'border-red-500' : 'border-green-500'"
-        class="mb-6"
-      >
-        <AlertDescription>{{ message }}</AlertDescription>
-      </Alert>
+      <Select v-model="selectedStatus" @update:modelValue="filterOrders">
+        <SelectTrigger class="w-48">
+          <SelectValue placeholder="Select status" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">All Status</SelectItem>
+          <SelectItem value="pending">Pending</SelectItem>
+          <SelectItem value="processing">Processing</SelectItem>
+          <SelectItem value="shipped">Shipped</SelectItem>
+          <SelectItem value="delivered">Delivered</SelectItem>
+          <SelectItem value="cancelled">Cancelled</SelectItem>
+        </SelectContent>
+      </Select>
 
-      <!-- Approval Summary -->
-      <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-        <!-- Pending Expenses -->
-        <Card>
-          <CardHeader
-            class="flex flex-row items-center justify-between space-y-0"
+      <Select v-model="selectedDateRange" @update:modelValue="filterOrders">
+        <SelectTrigger class="w-36">
+          <SelectValue placeholder="Date Range" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">All Dates</SelectItem>
+          <SelectItem value="today">Today</SelectItem>
+          <SelectItem value="week">This Week</SelectItem>
+          <SelectItem value="month">This Month</SelectItem>
+        </SelectContent>
+      </Select>
+    </div>
+
+    <!-- Loading State -->
+    <div v-if="loading" class="flex justify-center items-center py-8">
+      <div
+        class="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"
+      ></div>
+    </div>
+
+    <!-- Data Table -->
+    <div v-else class="border">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead class="w-12">
+              <Checkbox
+                :checked="selectAll"
+                @update:checked="toggleSelectAll"
+              />
+            </TableHead>
+            <TableHead class="w-24">Order ID</TableHead>
+            <TableHead>Customer</TableHead>
+            <TableHead>Date</TableHead>
+            <TableHead class="w-32">Items</TableHead>
+            <TableHead class="text-left">Total</TableHead>
+            <TableHead class="text-left">Status</TableHead>
+            <TableHead class="text-center">Actions</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          <TableRow
+            v-for="order in paginatedOrders"
+            :key="order.id"
+            class="hover:bg-muted/50"
           >
-            <CardTitle class="text-sm font-medium">Pending Review</CardTitle>
-            <Clock />
-          </CardHeader>
-          <CardContent>
-            <div class="text-xl font-bold">
-              {{ pendingExpenses.length }}
-            </div>
-            <p class="text-xs text-muted-foreground">Awaiting your approval</p>
-          </CardContent>
-        </Card>
-
-        <!-- Total Amount -->
-        <Card>
-          <CardHeader
-            class="flex flex-row items-center justify-between space-y-0"
-          >
-            <CardTitle class="text-sm font-medium">Total Amount</CardTitle>
-            <DollarSign />
-          </CardHeader>
-          <CardContent>
-            <div class="text-xl font-bold">
-              Rp {{ formatPrice(totalPendingAmount) }}
-            </div>
-            <p class="text-xs text-muted-foreground">Pending approval value</p>
-          </CardContent>
-        </Card>
-
-        <!-- Approved Today -->
-        <Card>
-          <CardHeader
-            class="flex flex-row items-center justify-between space-y-0"
-          >
-            <CardTitle class="text-sm font-medium">Approved Today</CardTitle>
-            <CheckCircle class="text-green-500" />
-          </CardHeader>
-          <CardContent>
-            <div class="text-xl font-bold text-green-600">
-              {{ todayApprovedCount }}
-            </div>
-            <p class="text-xs text-muted-foreground">Expenses approved</p>
-          </CardContent>
-        </Card>
-
-        <!-- Rejected Today -->
-        <Card>
-          <CardHeader
-            class="flex flex-row items-center justify-between space-y-0"
-          >
-            <CardTitle class="text-sm font-medium">Rejected Today</CardTitle>
-            <XCircle class="text-red-500" />
-          </CardHeader>
-          <CardContent>
-            <div class="text-xl font-bold text-red-600">
-              {{ todayRejectedCount }}
-            </div>
-            <p class="text-xs text-muted-foreground">Expenses rejected</p>
-          </CardContent>
-        </Card>
-      </div>
-
-      <!-- Pending Expenses Table -->
-      <Card>
-        <CardHeader>
-          <CardTitle class="flex items-center">
-            <AlertTriangle class="mr-2 h-5 w-5 text-orange-600" />
-            Pending Expense Approvals
-          </CardTitle>
-          <CardDescription>
-            Review and approve/reject expense requests from your team
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div v-if="loadingExpenses" class="text-center py-8">
-            <div
-              class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"
-            ></div>
-            <p class="mt-2 text-sm text-muted-foreground">
-              Loading expenses...
-            </p>
-          </div>
-          <div
-            v-else-if="pendingExpenses.length === 0"
-            class="text-center py-8"
-          >
-            <CheckCircle class="h-12 w-12 text-green-500 mx-auto mb-4" />
-            <h3 class="text-lg font-medium text-green-600 mb-2">
-              All Caught Up!
-            </h3>
-            <p class="text-muted-foreground">
-              No pending expenses to review at the moment.
-            </p>
-          </div>
-
-          <Table v-else>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Expense Details</TableHead>
-                <TableHead>Submitted By</TableHead>
-                <TableHead class="text-right">Amount</TableHead>
-                <TableHead>Date Submitted</TableHead>
-                <TableHead>Priority</TableHead>
-                <TableHead>Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              <TableRow
-                v-for="expense in pendingExpenses"
-                :key="expense.id"
-                class="hover:bg-muted/50"
-              >
-                <TableCell>
-                  <div class="space-y-1">
-                    <div class="font-medium">{{ expense.description }}</div>
-                    <div class="flex items-center space-x-2">
-                      <Badge variant="outline" class="text-xs">{{
-                        getCategoryLabel(expense.category)
-                      }}</Badge>
-                      <span
-                        v-if="expense.vendor"
-                        class="text-xs text-muted-foreground"
-                      >
-                        Vendor: {{ expense.vendor }}
-                      </span>
-                    </div>
-                    <div
-                      v-if="expense.notes"
-                      class="text-xs text-muted-foreground"
-                    >
-                      {{ expense.notes }}
-                    </div>
-                  </div>
-                </TableCell>
-                <TableCell>
-                  <div class="flex items-center space-x-2">
-                    <div
-                      class="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center"
-                    >
-                      <span class="text-xs font-medium">{{
-                        expense.submittedBy.charAt(0)
-                      }}</span>
-                    </div>
-                    <div>
-                      <div class="font-medium text-sm">
-                        {{ expense.submittedBy }}
-                      </div>
-                      <div class="text-xs text-muted-foreground">
-                        {{ expense.department || "N/A" }}
-                      </div>
-                    </div>
-                  </div>
-                </TableCell>
-                <TableCell>
-                  <div class="font-bold text-md">
-                    Rp {{ formatPrice(expense.amount) }}
-                  </div>
-                  <div class="text-xs text-muted-foreground">
-                    {{ getPaymentMethodLabel(expense.paymentMethod) }}
-                  </div>
-                </TableCell>
-                <TableCell>
-                  <div class="text-sm">
-                    {{ formatDate(expense.createdAt) }}
-                  </div>
-                  <div class="text-xs text-muted-foreground">
-                    {{ getTimeAgo(expense.createdAt) }}
-                  </div>
-                </TableCell>
-                <TableCell>
-                  <Badge
-                    :variant="getPriorityVariant(expense.priority)"
-                    class="text-xs"
-                  >
-                    {{ expense.priority || "Normal" }}
-                  </Badge>
-                </TableCell>
-                <TableCell>
-                  <div class="flex space-x-2">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      @click="viewExpenseDetails(expense)"
-                    >
-                      <Eye class="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="default"
-                      size="sm"
-                      @click="approveExpense(expense)"
-                      class="bg-green-600 hover:bg-green-700"
-                    >
-                      <Check class="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      @click="rejectExpense(expense)"
-                    >
-                      <X class="h-4 w-4" />
-                    </Button>
-                  </div>
-                </TableCell>
-              </TableRow>
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
-
-      <!-- Recent Approval History -->
-      <Card class="mt-6 mb-4">
-        <CardHeader>
-          <CardTitle class="flex items-center">
-            <History class="mr-2 h-5 w-5" />
-            Recent Approval History
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div class="space-y-3">
-            <div
-              v-for="history in recentApprovalHistory"
-              :key="history.id"
-              class="flex items-center justify-between p-3 border rounded-lg"
-            >
-              <div class="flex items-center space-x-3">
+            <!-- Checkbox -->
+            <TableCell>
+              <Checkbox
+                :checked="selectedOrders.includes(order.id)"
+                @update:checked="toggleOrderSelection(order.id)"
+              />
+            </TableCell>
+            <!-- Order ID -->
+            <TableCell class="font-mono text-sm">
+              {{ order.orderId || order.id }}
+            </TableCell>
+            <!-- Customer -->
+            <TableCell class="font-medium">
+              <div class="flex items-center">
                 <div
-                  class="p-2 rounded-full"
-                  :class="
-                    history.action === 'approved'
-                      ? 'bg-green-100'
-                      : 'bg-red-100'
-                  "
+                  class="h-8 w-8 rounded-full bg-gray-200 flex items-center justify-center mr-3"
                 >
-                  <component
-                    :is="history.action === 'approved' ? CheckCircle : XCircle"
-                    :class="
-                      history.action === 'approved'
-                        ? 'text-green-600'
-                        : 'text-red-600'
-                    "
-                    class="h-4 w-4"
-                  />
+                  <span class="text-sm font-medium text-gray-600">
+                    {{ getCustomerInitial(order) }}
+                  </span>
                 </div>
                 <div>
                   <div class="font-medium">
-                    {{ history.expenseDescription }}
+                    {{ order.customerName || "N/A" }}
                   </div>
                   <div class="text-sm text-muted-foreground">
-                    {{
-                      history.action === "approved" ? "Approved" : "Rejected"
-                    }}
-                    by {{ history.approvedBy }}
+                    {{ order.customerEmail || "N/A" }}
                   </div>
                 </div>
               </div>
-              <div class="text-right">
-                <div
-                  class="font-bold"
-                  :class="
-                    history.action === 'approved'
-                      ? 'text-green-600'
-                      : 'text-red-600'
-                  "
-                >
-                  Rp {{ formatPrice(history.amount) }}
-                </div>
-                <div class="text-xs text-muted-foreground">
-                  {{ formatDate(history.actionDate) }}
+            </TableCell>
+            <!-- Date -->
+            <TableCell>
+              <div class="text-sm">
+                <div>{{ formatDate(order.orderDate || order.createdAt) }}</div>
+                <div class="text-muted-foreground">
+                  {{ formatTime(order.orderDate || order.createdAt) }}
                 </div>
               </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+            </TableCell>
+            <!-- Items -->
+            <TableCell>
+              <Badge variant="outline"> {{ getItemCount(order) }} items </Badge>
+            </TableCell>
+            <!-- Total -->
+            <TableCell class="text-left font-medium">
+              Rp {{ formatPrice(getOrderTotal(order)) }}
+            </TableCell>
+            <!-- Status -->
+            <TableCell class="text-left">
+              <Badge
+                :variant="getStatusVariant(order.status)"
+                class="capitalize"
+              >
+                {{ order.status || "pending" }}
+              </Badge>
+            </TableCell>
+            <!-- Actions -->
+            <TableCell class="text-center">
+              <div class="flex items-center justify-center gap-2">
+                <Button variant="ghost" size="sm" @click="viewOrder(order.id)">
+                  <Eye class="h-4 w-4" />
+                </Button>
+                <Button variant="ghost" size="sm" @click="editOrder(order.id)">
+                  <Pencil class="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  @click="deleteOrder(order.id)"
+                >
+                  <Trash2 class="h-4 w-4 text-destructive" />
+                </Button>
+              </div>
+            </TableCell>
+          </TableRow>
+        </TableBody>
+      </Table>
     </div>
 
-    <!-- Expense Details Modal -->
-    <Dialog v-model:open="showDetailsModal">
+    <!-- Pagination -->
+    <div class="flex items-center justify-between space-x-2 p-4">
+      <div class="flex items-center space-x-2">
+        <p class="text-sm font-medium">Rows per page</p>
+        <Select v-model="itemsPerPage" @update:modelValue="changePage(1)">
+          <SelectTrigger class="h-8 w-16">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="10">10</SelectItem>
+            <SelectItem value="20">20</SelectItem>
+            <SelectItem value="50">50</SelectItem>
+            <SelectItem value="100">100</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      <div class="flex items-center space-x-6 lg:space-x-8">
+        <div class="flex w-32 items-center justify-center text-sm font-medium">
+          Page {{ currentPage }} of {{ totalPages }}
+        </div>
+        <div class="flex items-center space-x-2">
+          <Button
+            variant="outline"
+            class="h-8 w-8 p-0"
+            @click="changePage(1)"
+            :disabled="currentPage === 1"
+          >
+            <ChevronsLeft class="h-4 w-4" />
+          </Button>
+          <Button
+            variant="outline"
+            class="h-8 w-8 p-0"
+            @click="changePage(currentPage - 1)"
+            :disabled="currentPage === 1"
+          >
+            <ChevronLeft class="h-4 w-4" />
+          </Button>
+          <Button
+            variant="outline"
+            class="h-8 w-8 p-0"
+            @click="changePage(currentPage + 1)"
+            :disabled="currentPage === totalPages"
+          >
+            <ChevronRight class="h-4 w-4" />
+          </Button>
+          <Button
+            variant="outline"
+            class="h-8 w-8 p-0"
+            @click="changePage(totalPages)"
+            :disabled="currentPage === totalPages"
+          >
+            <ChevronsRight class="h-4 w-4" />
+          </Button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bulk Actions -->
+    <div
+      v-if="selectedOrders.length > 0"
+      class="fixed bottom-4 left-1/2 transform -translate-x-1/2"
+    >
+      <div
+        class="bg-primary text-primary-foreground px-4 py-2 rounded-lg shadow-lg flex items-center gap-4"
+      >
+        <span class="text-sm font-medium"
+          >{{ selectedOrders.length }} selected</span
+        >
+        <div class="flex gap-2">
+          <Button variant="secondary" size="sm" @click="bulkDelete">
+            <Trash2 class="h-4 w-4 mr-1" />
+            Delete
+          </Button>
+          <Button variant="secondary" size="sm" @click="bulkStatusUpdate">
+            <Settings class="h-4 w-4 mr-1" />
+            Update Status
+          </Button>
+          <Button variant="secondary" size="sm" @click="clearSelection">
+            <X class="h-4 w-4" />
+          </Button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Order Details Modal -->
+    <Dialog v-model:open="showOrderModal">
       <DialogContent class="max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Expense Approval Review</DialogTitle>
+          <DialogTitle
+            >Order Details -
+            {{ selectedOrder?.orderId || selectedOrder?.id }}</DialogTitle
+          >
         </DialogHeader>
-        <div v-if="selectedExpense" class="space-y-4">
+        <div v-if="selectedOrder" class="space-y-4">
           <div class="grid grid-cols-2 gap-4">
             <div>
-              <Label class="font-medium">Expense ID</Label>
-              <p class="font-mono">{{ selectedExpense.expenseId }}</p>
+              <Label class="font-medium">Customer</Label>
+              <p>{{ selectedOrder.customerName || "N/A" }}</p>
+              <p class="text-sm text-gray-500">
+                {{ selectedOrder.customerEmail || "N/A" }}
+              </p>
             </div>
             <div>
-              <Label class="font-medium">Amount</Label>
-              <p class="text-lg font-bold">
-                Rp {{ formatPrice(selectedExpense.amount) }}
+              <Label class="font-medium">Order Date</Label>
+              <p>
+                {{
+                  formatDate(selectedOrder.orderDate || selectedOrder.createdAt)
+                }}
+              </p>
+            </div>
+            <div>
+              <Label class="font-medium">Status</Label>
+              <Badge :variant="getStatusVariant(selectedOrder.status)">
+                {{ selectedOrder.status || "pending" }}
+              </Badge>
+            </div>
+            <div>
+              <Label class="font-medium">Total</Label>
+              <p class="font-medium">
+                Rp {{ formatPrice(getOrderTotal(selectedOrder)) }}
               </p>
             </div>
           </div>
-          <div>
-            <Label class="font-medium">Description</Label>
-            <p>{{ selectedExpense.description }}</p>
-          </div>
-          <div class="grid grid-cols-2 gap-4">
-            <div>
-              <Label class="font-medium">Category</Label>
-              <Badge variant="outline">{{
-                getCategoryLabel(selectedExpense.category)
-              }}</Badge>
-            </div>
-            <div>
-              <Label class="font-medium">Submitted By</Label>
-              <p>{{ selectedExpense.submittedBy }}</p>
-            </div>
-          </div>
-          <div v-if="selectedExpense.vendor">
-            <Label class="font-medium">Vendor/Supplier</Label>
-            <p>{{ selectedExpense.vendor }}</p>
-          </div>
-          <div v-if="selectedExpense.notes">
-            <Label class="font-medium">Notes</Label>
-            <p class="text-sm text-muted-foreground">
-              {{ selectedExpense.notes }}
-            </p>
-          </div>
-          <div v-if="selectedExpense.receiptUrl">
-            <Label class="font-medium">Receipt/Invoice</Label>
-            <a
-              :href="selectedExpense.receiptUrl"
-              target="_blank"
-              class="text-blue-600 underline"
-            >
-              View Receipt
-            </a>
-          </div>
-          <div class="flex justify-end space-x-2 pt-4">
-            <Button variant="outline" @click="showDetailsModal = false"
-              >Close</Button
-            >
-            <Button variant="destructive" @click="rejectExpenseFromModal">
-              <X class="mr-2 h-4 w-4" />
-              Reject
-            </Button>
-            <Button
-              @click="approveExpenseFromModal"
-              class="bg-green-600 hover:bg-green-700"
-            >
-              <Check class="mr-2 h-4 w-4" />
-              Approve
-            </Button>
-          </div>
-        </div>
-      </DialogContent>
-    </Dialog>
 
-    <!-- Rejection Reason Modal -->
-    <Dialog v-model:open="showRejectionModal">
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Reject Expense</DialogTitle>
-        </DialogHeader>
-        <div class="space-y-4">
-          <div>
-            <Label for="rejectionReason">Reason for Rejection *</Label>
-            <Textarea
-              id="rejectionReason"
-              v-model="rejectionReason"
-              placeholder="Please provide a reason for rejecting this expense..."
-              rows="4"
-              required
-            />
+          <div
+            v-if="selectedOrder.products && selectedOrder.products.length > 0"
+          >
+            <Label class="font-medium">Products</Label>
+            <div class="mt-2 space-y-2">
+              <div
+                v-for="product in selectedOrder.products"
+                :key="product.productId || product.id"
+                class="flex justify-between items-center p-2 bg-gray-50 rounded"
+              >
+                <span
+                  >{{ product.productName || product.name }} x{{
+                    product.quantity
+                  }}</span
+                >
+                <span
+                  >Rp
+                  {{
+                    formatPrice(
+                      product.subtotal || product.unitPrice * product.quantity
+                    )
+                  }}</span
+                >
+              </div>
+            </div>
           </div>
-          <div class="flex justify-end space-x-2">
-            <Button variant="outline" @click="showRejectionModal = false"
-              >Cancel</Button
-            >
-            <Button variant="destructive" @click="confirmRejection">
-              <X class="mr-2 h-4 w-4" />
-              Reject Expense
-            </Button>
+
+          <div v-if="selectedOrder.shippingAddress">
+            <Label class="font-medium">Shipping Address</Label>
+            <p class="text-sm">{{ selectedOrder.shippingAddress }}</p>
+          </div>
+
+          <div v-if="selectedOrder.notes">
+            <Label class="font-medium">Notes</Label>
+            <p class="text-sm">{{ selectedOrder.notes }}</p>
           </div>
         </div>
       </DialogContent>
@@ -4157,14 +334,11 @@ Approval Expenses:
 </template>
 
 <script setup>
-import { computed, ref, reactive, onMounted } from "vue";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import HeadersContent from "~/components/ui/HeadersContent.vue";
+import { ref, computed, onMounted } from "vue";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
   Table,
   TableBody,
@@ -4173,350 +347,331 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Shield, ShieldX, RefreshCw } from "lucide-vue-next";
-import HeadersContent from "~/components/ui/HeadersContent.vue";
 import {
-  Clock,
-  DollarSign,
-  CheckCircle,
-  XCircle,
-  AlertTriangle,
+  Plus,
+  Search,
   Eye,
-  Check,
+  Pencil,
+  Trash2,
+  Settings,
   X,
-  History,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
 } from "lucide-vue-next";
 import {
   collection,
   getDocs,
-  query,
-  where,
-  orderBy,
   doc,
-  setDoc,
-  serverTimestamp,
+  deleteDoc,
+  query,
+  orderBy,
 } from "firebase/firestore";
 
-// Set page meta for role-based access
 definePageMeta({
   middleware: "auth",
 });
 
-const { user } = useAuth();
+// Firebase Instance
+const { $firebase } = useNuxtApp();
 
-// Access control computed
-const hasApprovalAccess = computed(() => {
-  return (
-    user.value && ["owner", "manager"].includes(user.value.role?.toLowerCase())
-  );
-});
+// Data Orders dari Firebase firestore
+const allOrders = ref([]);
+const loading = ref(true);
 
-// State
-const showDetailsModal = ref(false);
-const showRejectionModal = ref(false);
-const selectedExpense = ref(null);
-const rejectionReason = ref("");
-const expenseToReject = ref(null);
-const loadingExpenses = ref(false);
-const message = ref("");
-const messageType = ref("");
+// Reactive data
+const searchQuery = ref("");
+const selectedStatus = ref("all");
+const selectedDateRange = ref("all");
+const filteredOrders = ref([]);
+const selectedOrders = ref([]);
+const currentPage = ref(1);
+const itemsPerPage = ref(10);
+const showOrderModal = ref(false);
+const selectedOrder = ref(null);
 
-const pendingExpenses = ref([]);
-const recentApprovalHistory = ref([]);
-
-// Function to fetch pending expenses from Firestore
-const fetchPendingExpenses = async () => {
+// Fetch orders from Firestore
+const fetchOrders = async () => {
   try {
-    loadingExpenses.value = true;
-    const { $firebase } = useNuxtApp();
+    loading.value = true;
+    const ordersCollection = collection($firebase.firestore, "orders");
+    const ordersQuery = query(ordersCollection, orderBy("createdAt", "desc"));
+    const querySnapshot = await getDocs(ordersQuery);
 
-    const expensesQuery = query(
-      collection($firebase.firestore, "expenses"),
-      where("status", "==", "pending"),
-      orderBy("createdAt", "desc")
-    );
+    allOrders.value = querySnapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    }));
 
-    const querySnapshot = await getDocs(expensesQuery);
-
-    pendingExpenses.value = querySnapshot.docs.map((doc) => {
-      const data = doc.data();
-      return {
-        id: doc.id,
-        ...data,
-        date: data.date?.toDate ? data.date.toDate() : new Date(data.date),
-        createdAt: data.createdAt?.toDate
-          ? data.createdAt.toDate()
-          : new Date(),
-        priority: data.priority || "normal",
-        department: data.department || "N/A",
-      };
-    });
-
-    console.log("Fetched pending expenses:", pendingExpenses.value);
+    filteredOrders.value = [...allOrders.value];
+    console.log("Orders fetched successfully:", allOrders.value);
+    filterOrders(); // Initial filter to set up the view
   } catch (error) {
-    console.error("Error fetching pending expenses:", error);
-    showMessage("Failed to load pending expenses", "error");
+    console.error("Error fetching orders:", error);
   } finally {
-    loadingExpenses.value = false;
+    loading.value = false;
   }
 };
 
-// Function to fetch approval history
-const fetchApprovalHistory = async () => {
-  try {
-    const { $firebase } = useNuxtApp();
-
-    const historyQuery = query(
-      collection($firebase.firestore, "expenses"),
-      where("status", "in", ["approved", "rejected"]),
-      orderBy("updatedAt", "desc"),
-      limit(10)
-    );
-
-    const querySnapshot = await getDocs(historyQuery);
-
-    recentApprovalHistory.value = querySnapshot.docs.map((doc) => {
-      const data = doc.data();
-      return {
-        id: doc.id,
-        expenseDescription: data.description,
-        amount: data.amount,
-        action: data.status,
-        approvedBy: data.approvedBy || "System",
-        actionDate: data.updatedAt?.toDate
-          ? data.updatedAt.toDate()
-          : new Date(),
-      };
-    });
-
-    console.log("Fetched approval history:", recentApprovalHistory.value);
-  } catch (error) {
-    console.error("Error fetching approval history:", error);
-  }
+// Helper functions to handle different data structures
+const getCustomerInitial = (order) => {
+  const name = order.customerName || order.customer?.name || "N";
+  return name.charAt(0).toUpperCase();
 };
 
-// Computed
-const totalPendingAmount = computed(() => {
-  return pendingExpenses.value.reduce(
-    (sum, expense) => sum + expense.amount,
-    0
+const getItemCount = (order) => {
+  if (order.products && Array.isArray(order.products)) {
+    return order.products.length;
+  }
+  return order.itemCount || 0;
+};
+
+const getOrderTotal = (order) => {
+  if (order.grandTotal) return order.grandTotal;
+  if (order.total) return order.total;
+  if (order.subtotal) return order.subtotal;
+  return 0;
+};
+
+// Computed properties
+const selectAll = computed(() => {
+  return (
+    paginatedOrders.value.length > 0 &&
+    paginatedOrders.value.every((order) =>
+      selectedOrders.value.includes(order.id)
+    )
   );
 });
 
-const todayApprovedCount = computed(() => {
-  const today = new Date().toDateString();
-  return recentApprovalHistory.value.filter(
-    (h) => h.action === "approved" && h.actionDate.toDateString() === today
-  ).length;
+const totalPages = computed(() => {
+  return Math.ceil(filteredOrders.value.length / parseInt(itemsPerPage.value));
 });
 
-const todayRejectedCount = computed(() => {
-  const today = new Date().toDateString();
-  return recentApprovalHistory.value.filter(
-    (h) => h.action === "rejected" && h.actionDate.toDateString() === today
-  ).length;
+const paginatedOrders = computed(() => {
+  const start = (currentPage.value - 1) * parseInt(itemsPerPage.value);
+  const end = start + parseInt(itemsPerPage.value);
+  return filteredOrders.value.slice(start, end);
 });
 
 // Methods
+const filterOrders = () => {
+  let filtered = allOrders.value;
+
+  // Filter by search query
+  if (searchQuery.value) {
+    const query = searchQuery.value.toLowerCase();
+    filtered = filtered.filter(
+      (order) =>
+        (order.orderId || order.id).toLowerCase().includes(query) ||
+        (order.customerName || order.customer?.name || "")
+          .toLowerCase()
+          .includes(query) ||
+        (order.customerEmail || order.customer?.email || "")
+          .toLowerCase()
+          .includes(query)
+    );
+  }
+
+  // Filter by status
+  if (selectedStatus.value && selectedStatus.value !== "all") {
+    filtered = filtered.filter(
+      (order) => order.status === selectedStatus.value
+    );
+  }
+
+  // Filter by date range
+  if (selectedDateRange.value && selectedDateRange.value !== "all") {
+    const now = new Date();
+    filtered = filtered.filter((order) => {
+      const orderDate = new Date(
+        order.orderDate || order.createdAt?.toDate?.() || order.createdAt
+      );
+      switch (selectedDateRange.value) {
+        case "today":
+          return orderDate.toDateString() === now.toDateString();
+        case "week":
+          const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+          return orderDate >= weekAgo;
+        case "month":
+          return (
+            orderDate.getMonth() === now.getMonth() &&
+            orderDate.getFullYear() === now.getFullYear()
+          );
+        default:
+          return true;
+      }
+    });
+  }
+
+  filteredOrders.value = filtered;
+  currentPage.value = 1;
+  selectedOrders.value = [];
+};
+
+const getStatusVariant = (status) => {
+  switch (status) {
+    case "queue":
+      return "default";
+    case "pending":
+      return "secondary";
+    case "processing":
+      return "default";
+    case "shipped":
+      return "outline";
+    case "delivered":
+      return "default";
+    case "cancelled":
+      return "destructive";
+    default:
+      return "secondary";
+  }
+};
+
 const formatPrice = (price) => {
   if (!price) return "0";
   return new Intl.NumberFormat("id-ID").format(price);
 };
 
-const formatDate = (date) => {
-  return new Date(date).toLocaleDateString("id-ID", {
+const formatDate = (dateInput) => {
+  if (!dateInput) return "N/A";
+
+  let date;
+  if (dateInput.toDate && typeof dateInput.toDate === "function") {
+    // Firestore Timestamp
+    date = dateInput.toDate();
+  } else if (typeof dateInput === "string") {
+    date = new Date(dateInput);
+  } else {
+    date = dateInput;
+  }
+
+  return date.toLocaleDateString("id-ID", {
     year: "numeric",
     month: "short",
     day: "numeric",
   });
 };
 
-const getTimeAgo = (date) => {
-  const now = new Date();
-  const diffHours = Math.floor((now - new Date(date)) / (1000 * 60 * 60));
+const formatTime = (dateInput) => {
+  if (!dateInput) return "N/A";
 
-  if (diffHours < 1) return "Just now";
-  if (diffHours < 24) return `${diffHours}h ago`;
-  const diffDays = Math.floor(diffHours / 24);
-  return `${diffDays}d ago`;
+  let date;
+  if (dateInput.toDate && typeof dateInput.toDate === "function") {
+    // Firestore Timestamp
+    date = dateInput.toDate();
+  } else if (typeof dateInput === "string") {
+    date = new Date(dateInput);
+  } else {
+    date = dateInput;
+  }
+
+  return date.toLocaleTimeString("id-ID", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 };
 
-const getCategoryLabel = (category) => {
-  const labels = {
-    materials: "Raw Materials",
-    labor: "Labor Costs",
-    operational: "Operational",
-    marketing: "Marketing",
-    utilities: "Utilities",
-    transportation: "Transportation",
-    others: "Others",
-  };
-  return labels[category] || category;
+const toggleSelectAll = (checked) => {
+  if (checked) {
+    selectedOrders.value = [...paginatedOrders.value.map((o) => o.id)];
+  } else {
+    selectedOrders.value = [];
+  }
 };
 
-const getPaymentMethodLabel = (method) => {
-  const labels = {
-    cash: "Cash",
-    bank_transfer: "Bank Transfer",
-    credit_card: "Credit Card",
-    debit_card: "Debit Card",
-    check: "Check",
-    digital_wallet: "Digital Wallet",
-  };
-  return labels[method] || method;
+const toggleOrderSelection = (orderId) => {
+  const index = selectedOrders.value.indexOf(orderId);
+  if (index > -1) {
+    selectedOrders.value.splice(index, 1);
+  } else {
+    selectedOrders.value.push(orderId);
+  }
 };
 
-const getPriorityVariant = (priority) => {
-  const variants = {
-    urgent: "destructive",
-    high: "secondary",
-    normal: "outline",
-    low: "outline",
-  };
-  return variants[priority] || "outline";
+const changePage = (page) => {
+  currentPage.value = page;
+  selectedOrders.value = [];
 };
 
-const showMessage = (msg, type) => {
-  message.value = msg;
-  messageType.value = type;
-  setTimeout(() => {
-    message.value = "";
-    messageType.value = "";
-  }, 5000);
+const clearSelection = () => {
+  selectedOrders.value = [];
 };
 
-const viewExpenseDetails = (expense) => {
-  selectedExpense.value = expense;
-  showDetailsModal.value = true;
+// Navigation methods
+const navigateToAddOrder = () => {
+  console.log("Navigate to add order");
+  navigateTo("/orders/addOrder");
 };
 
-const approveExpense = async (expense) => {
-  try {
-    const { $firebase } = useNuxtApp();
+const viewOrder = (id) => {
+  selectedOrder.value = allOrders.value.find((order) => order.id === id);
+  showOrderModal.value = true;
+};
 
-    // Update expense status to approved
-    await setDoc(
-      doc($firebase.firestore, "expenses", expense.id),
-      {
-        status: "approved",
-        approvedBy:
-          user.value?.firstName + " " + user.value?.lastName ||
-          user.value?.email,
-        approvedAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-      },
-      { merge: true }
-    );
+const editOrder = (id) => {
+  console.log("Edit order:", id);
+  // navigateTo(`/orders/edit/${id}`);
+};
 
-    // Remove from pending list
-    const index = pendingExpenses.value.findIndex((e) => e.id === expense.id);
-    if (index !== -1) {
-      pendingExpenses.value.splice(index, 1);
+const deleteOrder = async (id) => {
+  if (confirm("Are you sure you want to delete this order?")) {
+    try {
+      await deleteDoc(doc($firebase.firestore, "orders", id));
+      await fetchOrders(); // Refresh the orders list
+      console.log("Order deleted successfully");
+    } catch (error) {
+      console.error("Error deleting order:", error);
     }
-
-    // Add to approval history
-    recentApprovalHistory.value.unshift({
-      id: expense.id,
-      expenseDescription: expense.description,
-      amount: expense.amount,
-      action: "approved",
-      approvedBy:
-        user.value?.firstName + " " + user.value?.lastName || user.value?.email,
-      actionDate: new Date(),
-    });
-
-    showMessage(
-      `Expense ${expense.expenseId} has been approved successfully!`,
-      "success"
-    );
-  } catch (error) {
-    console.error("Error approving expense:", error);
-    showMessage("Failed to approve expense. Please try again.", "error");
   }
 };
 
-const rejectExpense = (expense) => {
-  expenseToReject.value = expense;
-  rejectionReason.value = "";
-  showRejectionModal.value = true;
-};
-
-const confirmRejection = async () => {
-  if (!rejectionReason.value.trim()) {
-    showMessage("Please provide a reason for rejection.", "error");
-    return;
-  }
-
-  try {
-    const { $firebase } = useNuxtApp();
-    const expense = expenseToReject.value;
-
-    // Update expense status to rejected
-    await setDoc(
-      doc($firebase.firestore, "expenses", expense.id),
-      {
-        status: "rejected",
-        rejectedBy:
-          user.value?.firstName + " " + user.value?.lastName ||
-          user.value?.email,
-        rejectionReason: rejectionReason.value,
-        rejectedAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-      },
-      { merge: true }
-    );
-
-    // Remove from pending list
-    const index = pendingExpenses.value.findIndex((e) => e.id === expense.id);
-    if (index !== -1) {
-      pendingExpenses.value.splice(index, 1);
+const bulkDelete = async () => {
+  if (
+    confirm(
+      `Are you sure you want to delete ${selectedOrders.value.length} orders?`
+    )
+  ) {
+    try {
+      const deletePromises = selectedOrders.value.map((orderId) =>
+        deleteDoc(doc($firebase.firestore, "orders", orderId))
+      );
+      await Promise.all(deletePromises);
+      await fetchOrders(); // Refresh the orders list
+      selectedOrders.value = [];
+      console.log("Orders deleted successfully");
+    } catch (error) {
+      console.error("Error deleting orders:", error);
     }
-
-    // Add to approval history
-    recentApprovalHistory.value.unshift({
-      id: expense.id,
-      expenseDescription: expense.description,
-      amount: expense.amount,
-      action: "rejected",
-      approvedBy:
-        user.value?.firstName + " " + user.value?.lastName || user.value?.email,
-      actionDate: new Date(),
-    });
-
-    showRejectionModal.value = false;
-    showMessage(`Expense ${expense.expenseId} has been rejected.`, "success");
-  } catch (error) {
-    console.error("Error rejecting expense:", error);
-    showMessage("Failed to reject expense. Please try again.", "error");
   }
 };
 
-const approveExpenseFromModal = () => {
-  approveExpense(selectedExpense.value);
-  showDetailsModal.value = false;
+const bulkStatusUpdate = () => {
+  console.log("Bulk status update:", selectedOrders.value);
+  // Implement bulk status update logic here
 };
 
-const rejectExpenseFromModal = () => {
-  showDetailsModal.value = false;
-  rejectExpense(selectedExpense.value);
-};
-
-const refreshData = () => {
-  fetchPendingExpenses();
-  fetchApprovalHistory();
-  showMessage("Data refreshed successfully!", "success");
-};
-
+// Initialize
 onMounted(() => {
-  if (hasApprovalAccess.value) {
-    fetchPendingExpenses();
-    fetchApprovalHistory();
-  }
+  fetchOrders();
 });
 </script>
+
+<style></style>
+
+

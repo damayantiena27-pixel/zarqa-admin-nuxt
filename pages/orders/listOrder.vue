@@ -1,19 +1,33 @@
 <template>
   <div class="container mx-auto min-w-full">
-    <!-- Title and Button -->
+    <!-- Title and Buttons -->
     <div class="flex items-center justify-between px-4">
       <HeadersContent
-        title="Orders"
+        title="List Orders"
         description="Manage your customer orders"
       />
-      <Button @click="navigateToAddOrder" class="bg-primary">
-        <Plus class="mr-2 h-4 w-4" />
-        Add Order
-      </Button>
+      <div class="flex gap-2">
+        <Button
+          @click="refreshOrders"
+          variant="outline"
+          class="bg-background"
+          :disabled="loading"
+        >
+          <RefreshCw
+            class="mr-2 h-4 w-4"
+            :class="{ 'animate-spin': loading }"
+          />
+          Refresh
+        </Button>
+        <Button @click="navigateToAddOrder" class="bg-primary">
+          <Plus class="mr-2 h-4 w-4" />
+          Add Order
+        </Button>
+      </div>
     </div>
 
     <!-- Search and Filter -->
-    <div class="flex items-center gap-4 mb-4 px-4">
+    <div class="flex items-center gap-4 mb-8 px-4">
       <div class="relative flex-1 w-full">
         <Search class="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
         <Input
@@ -31,9 +45,10 @@
         <SelectContent>
           <SelectItem value="all">All Status</SelectItem>
           <SelectItem value="pending">Pending</SelectItem>
+          <SelectItem value="queue">Queue</SelectItem>
           <SelectItem value="processing">Processing</SelectItem>
+          <SelectItem value="completed">Completed</SelectItem>
           <SelectItem value="shipped">Shipped</SelectItem>
-          <SelectItem value="delivered">Delivered</SelectItem>
           <SelectItem value="cancelled">Cancelled</SelectItem>
         </SelectContent>
       </Select>
@@ -75,7 +90,7 @@
             <TableHead class="w-32">Items</TableHead>
             <TableHead class="text-left">Total</TableHead>
             <TableHead class="text-left">Status</TableHead>
-            <TableHead class="text-center">Actions</TableHead>
+            <TableHead class="text-center w-48">Actions</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -143,17 +158,45 @@
             </TableCell>
             <!-- Actions -->
             <TableCell class="text-center">
-              <div class="flex items-center justify-center gap-2">
-                <Button variant="ghost" size="sm" @click="viewOrder(order.id)">
+              <div class="flex items-center justify-end gap-1">
+                <!-- Mark as Completed Button -->
+                <Button
+                  v-if="canMarkAsCompleted(order.status)"
+                  variant="ghost"
+                  size="sm"
+                  @click="markAsCompleted(order.id)"
+                  class="text-green-600 hover:text-green-700 hover:bg-green-50"
+                  title="Mark as Completed"
+                >
+                  <Check class="h-4 w-4" />
+                </Button>
+
+                <!-- View Button -->
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  @click="viewOrder(order.id)"
+                  title="View Order"
+                >
                   <Eye class="h-4 w-4" />
                 </Button>
-                <Button variant="ghost" size="sm" @click="editOrder(order.id)">
+
+                <!-- Edit Button -->
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  @click="editOrderModal(order.id)"
+                  title="Edit Order"
+                >
                   <Pencil class="h-4 w-4" />
                 </Button>
+
+                <!-- Delete Button -->
                 <Button
                   variant="ghost"
                   size="sm"
                   @click="deleteOrder(order.id)"
+                  title="Delete Order"
                 >
                   <Trash2 class="h-4 w-4 text-destructive" />
                 </Button>
@@ -225,7 +268,7 @@
     <!-- Bulk Actions -->
     <div
       v-if="selectedOrders.length > 0"
-      class="fixed bottom-4 left-1/2 transform -translate-x-1/2"
+      class="fixed bottom-4 left-1/2 transform -translate-x-1/2 z-50"
     >
       <div
         class="bg-primary text-primary-foreground px-4 py-2 rounded-lg shadow-lg flex items-center gap-4"
@@ -234,13 +277,17 @@
           >{{ selectedOrders.length }} selected</span
         >
         <div class="flex gap-2">
+          <Button
+            variant="secondary"
+            size="sm"
+            @click="showBulkStatusModal = true"
+          >
+            <Settings class="h-4 w-4 mr-1" />
+            Update Status
+          </Button>
           <Button variant="secondary" size="sm" @click="bulkDelete">
             <Trash2 class="h-4 w-4 mr-1" />
             Delete
-          </Button>
-          <Button variant="secondary" size="sm" @click="bulkStatusUpdate">
-            <Settings class="h-4 w-4 mr-1" />
-            Update Status
           </Button>
           <Button variant="secondary" size="sm" @click="clearSelection">
             <X class="h-4 w-4" />
@@ -328,6 +375,145 @@
         </div>
       </DialogContent>
     </Dialog>
+
+    <!-- Edit Order Modal -->
+    <Dialog v-model:open="showEditModal">
+      <DialogContent class="max-w-2xl">
+        <DialogHeader>
+          <DialogTitle
+            >Edit Order - {{ editOrder?.orderId || editOrder?.id }}</DialogTitle
+          >
+        </DialogHeader>
+        <div v-if="editOrder" class="space-y-4">
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <Label class="font-medium">Customer Name</Label>
+              <Input
+                v-model="editOrder.customerName"
+                placeholder="Customer name"
+              />
+            </div>
+            <div>
+              <Label class="font-medium">Customer Email</Label>
+              <Input
+                v-model="editOrder.customerEmail"
+                placeholder="Customer email"
+                type="email"
+              />
+            </div>
+            <div>
+              <Label class="font-medium">Status</Label>
+              <Select v-model="editOrder.status">
+                <SelectTrigger>
+                  <SelectValue placeholder="Select status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="pending">Pending</SelectItem>
+                  <SelectItem value="queue">Queue</SelectItem>
+                  <SelectItem value="processing">Processing</SelectItem>
+                  <SelectItem value="shipped">Shipped</SelectItem>
+                  <SelectItem value="delivered">Delivered</SelectItem>
+                  <SelectItem value="cancelled">Cancelled</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label class="font-medium">Order Date</Label>
+              <p class="text-sm text-gray-600 mt-2">
+                {{ formatDate(editOrder.orderDate || editOrder.createdAt) }}
+              </p>
+            </div>
+          </div>
+
+          <div>
+            <Label class="font-medium">Shipping Address</Label>
+            <Input
+              v-model="editOrder.shippingAddress"
+              placeholder="Shipping address"
+            />
+          </div>
+
+          <div>
+            <Label class="font-medium">Notes</Label>
+            <Input v-model="editOrder.notes" placeholder="Order notes" />
+          </div>
+
+          <div v-if="editOrder.products && editOrder.products.length > 0">
+            <Label class="font-medium">Products (Read Only)</Label>
+            <div class="mt-2 space-y-2">
+              <div
+                v-for="product in editOrder.products"
+                :key="product.productId || product.id"
+                class="flex justify-between items-center p-2 bg-gray-50 rounded"
+              >
+                <span
+                  >{{ product.productName || product.name }} x{{
+                    product.quantity
+                  }}</span
+                >
+                <span
+                  >Rp
+                  {{
+                    formatPrice(
+                      product.subtotal || product.unitPrice * product.quantity
+                    )
+                  }}</span
+                >
+              </div>
+            </div>
+            <div class="mt-2 pt-2 border-t">
+              <div class="flex justify-between items-center font-medium">
+                <span>Total:</span>
+                <span>Rp {{ formatPrice(getOrderTotal(editOrder)) }}</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="flex justify-end gap-2 pt-4">
+            <Button variant="outline" @click="showEditModal = false">
+              Cancel
+            </Button>
+            <Button @click="saveOrderChanges" :disabled="savingOrder">
+              {{ savingOrder ? "Saving..." : "Save Changes" }}
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+    <!-- Bulk Status Update Modal -->
+    <Dialog v-model:open="showBulkStatusModal">
+      <DialogContent class="max-w-md">
+        <DialogHeader>
+          <DialogTitle>Update Status</DialogTitle>
+        </DialogHeader>
+        <div class="space-y-4">
+          <p class="text-sm text-gray-600">
+            Update status for {{ selectedOrders.length }} selected orders
+          </p>
+          <Select v-model="bulkStatusValue">
+            <SelectTrigger>
+              <SelectValue placeholder="Select new status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="pending">Pending</SelectItem>
+              <SelectItem value="queue">Queue</SelectItem>
+              <SelectItem value="processing">Processing</SelectItem>
+              <SelectItem value="shipped">Shipped</SelectItem>
+              <SelectItem value="delivered">Delivered</SelectItem>
+              <SelectItem value="cancelled">Cancelled</SelectItem>
+            </SelectContent>
+          </Select>
+          <div class="flex justify-end gap-2">
+            <Button variant="outline" @click="showBulkStatusModal = false">
+              Cancel
+            </Button>
+            <Button @click="bulkStatusUpdate" :disabled="!bulkStatusValue">
+              Update Status
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
   </div>
 </template>
 
@@ -372,12 +558,15 @@ import {
   ChevronRight,
   ChevronsLeft,
   ChevronsRight,
+  RefreshCw,
+  Check,
 } from "lucide-vue-next";
 import {
   collection,
   getDocs,
   doc,
   deleteDoc,
+  updateDoc,
   query,
   orderBy,
 } from "firebase/firestore";
@@ -403,13 +592,22 @@ const currentPage = ref(1);
 const itemsPerPage = ref(10);
 const showOrderModal = ref(false);
 const selectedOrder = ref(null);
+const showBulkStatusModal = ref(false);
+const bulkStatusValue = ref("");
+const showEditModal = ref(false);
+const editOrder = ref(null);
+const savingOrder = ref(false);
 
-// Fetch orders from Firestore
+// Fetch orders from Firestore except orders status completed
 const fetchOrders = async () => {
   try {
     loading.value = true;
     const ordersCollection = collection($firebase.firestore, "orders");
-    const ordersQuery = query(ordersCollection, orderBy("createdAt", "desc"));
+    const ordersQuery = query(
+      ordersCollection,
+      orderBy("createdAt", "desc"),
+      where("status", "not-in", ["completed"])
+    );
     const querySnapshot = await getDocs(ordersQuery);
 
     allOrders.value = querySnapshot.docs.map((doc) => ({
@@ -425,6 +623,11 @@ const fetchOrders = async () => {
   } finally {
     loading.value = false;
   }
+};
+
+// Refresh orders
+const refreshOrders = async () => {
+  await fetchOrders();
 };
 
 // Helper functions to handle different data structures
@@ -445,6 +648,11 @@ const getOrderTotal = (order) => {
   if (order.total) return order.total;
   if (order.subtotal) return order.subtotal;
   return 0;
+};
+
+// Check if order can be marked as completed
+const canMarkAsCompleted = (status) => {
+  return status === "shipped" || status === "processing";
 };
 
 // Computed properties
@@ -531,9 +739,9 @@ const getStatusVariant = (status) => {
     case "processing":
       return "default";
     case "shipped":
-      return "outline";
-    case "delivered":
-      return "default";
+      return "warning";
+    case "completed":
+      return "success";
     case "cancelled":
       return "destructive";
     default:
@@ -611,6 +819,31 @@ const clearSelection = () => {
   selectedOrders.value = [];
 };
 
+// Mark order as completed
+const markAsCompleted = async (orderId) => {
+  try {
+    await updateDoc(doc($firebase.firestore, "orders", orderId), {
+      status: "completed",
+      updatedAt: new Date(),
+    });
+
+    // Update local state
+    const orderIndex = allOrders.value.findIndex(
+      (order) => order.id === orderId
+    );
+    if (orderIndex !== -1) {
+      allOrders.value[orderIndex].status = "completed";
+    }
+
+    // Re-filter to update the view
+    filterOrders();
+
+    console.log("Order marked as completed successfully");
+  } catch (error) {
+    console.error("Error marking order as completed:", error);
+  }
+};
+
 // Navigation methods
 const navigateToAddOrder = () => {
   console.log("Navigate to add order");
@@ -622,9 +855,62 @@ const viewOrder = (id) => {
   showOrderModal.value = true;
 };
 
-const editOrder = (id) => {
+const editOrderModal = (id) => {
+  const order = allOrders.value.find((order) => order.id === id);
+  // Create a copy to avoid mutating the original data
+  editOrder.value = { ...order };
+  showEditModal.value = true;
+};
+
+const saveOrderChanges = async () => {
+  if (!editOrder.value) return;
+
+  try {
+    savingOrder.value = true;
+
+    const updateData = {
+      customerName: editOrder.value.customerName,
+      customerEmail: editOrder.value.customerEmail,
+      status: editOrder.value.status,
+      shippingAddress: editOrder.value.shippingAddress,
+      notes: editOrder.value.notes,
+      updatedAt: new Date(),
+    };
+
+    await updateDoc(
+      doc($firebase.firestore, "orders", editOrder.value.id),
+      updateData
+    );
+
+    // Update local state
+    const orderIndex = allOrders.value.findIndex(
+      (order) => order.id === editOrder.value.id
+    );
+    if (orderIndex !== -1) {
+      allOrders.value[orderIndex] = {
+        ...allOrders.value[orderIndex],
+        ...updateData,
+      };
+    }
+
+    // Re-filter to update the view
+    filterOrders();
+
+    // Close modal
+    showEditModal.value = false;
+    editOrder.value = null;
+
+    console.log("Order updated successfully");
+  } catch (error) {
+    console.error("Error updating order:", error);
+  } finally {
+    savingOrder.value = false;
+  }
+};
+
+const editOrderOld = (id) => {
   console.log("Edit order:", id);
-  // navigateTo(`/orders/edit/${id}`);
+  navigateTo(`/orders/editOrder/${id}`);
 };
 
 const deleteOrder = async (id) => {
@@ -659,9 +945,43 @@ const bulkDelete = async () => {
   }
 };
 
-const bulkStatusUpdate = () => {
-  console.log("Bulk status update:", selectedOrders.value);
-  // Implement bulk status update logic here
+const bulkStatusUpdate = async () => {
+  if (!bulkStatusValue.value) return;
+
+  try {
+    const updatePromises = selectedOrders.value.map((orderId) =>
+      updateDoc(doc($firebase.firestore, "orders", orderId), {
+        status: bulkStatusValue.value,
+        updatedAt: new Date(),
+      })
+    );
+
+    await Promise.all(updatePromises);
+
+    // Update local state
+    selectedOrders.value.forEach((orderId) => {
+      const orderIndex = allOrders.value.findIndex(
+        (order) => order.id === orderId
+      );
+      if (orderIndex !== -1) {
+        allOrders.value[orderIndex].status = bulkStatusValue.value;
+      }
+    });
+
+    // Re-filter to update the view
+    filterOrders();
+
+    // Close modal and clear selection
+    showBulkStatusModal.value = false;
+    bulkStatusValue.value = "";
+    selectedOrders.value = [];
+
+    console.log(
+      `Bulk status update completed for ${selectedOrders.value.length} orders`
+    );
+  } catch (error) {
+    console.error("Error updating order status:", error);
+  }
 };
 
 // Initialize
