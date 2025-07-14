@@ -51,7 +51,7 @@ const chartData = {
 </script>
 
 <template>
-  <div>
+  <div class="p-4">
     <Tabs defaultValue="overview" class="w-full">
       <!-- Top Bar (Tabs Menu & Date Range Picker & Download Button) -->
       <div class="flex items-center justify-between gap-4 pb-4 px-4">
@@ -71,7 +71,7 @@ const chartData = {
       <!-- Tabs Content - Konten untuk setiap tab -->
       <TabsContent value="overview">
         <!-- Content Dashboard untuk Overview -->
-        <div class="flex flex-1 flex-col gap-4 p-4 pt-0">
+        <div class="flex flex-1 flex-col gap-8 pt-0">
           <div class="grid auto-rows-min gap-4 md:grid-cols-4">
             <!-- Total Pemasukan  -->
             <Card>

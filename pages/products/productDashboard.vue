@@ -7,10 +7,24 @@
         description="Monitor and manage your products"
       />
 
+      <!-- Alert Messages -->
+      <Alert
+        v-if="message"
+        :class="messageType === 'error' ? 'border-red-500' : 'border-green-500'"
+        class=""
+      >
+        <AlertDescription>{{ message }}</AlertDescription>
+      </Alert>
+
       <!-- Quick Actions -->
       <div class="flex justify-between gap-3">
         <div class="flex gap-2">
-          <Button variant="outline" class="gap-2" @click="exportData">
+          <Button
+            variant="outline"
+            class="gap-2"
+            @click="exportData"
+            :disabled="loading || allProducts.length === 0"
+          >
             <Download class="h-4 w-4" />
             Export Data
           </Button>
@@ -33,10 +47,10 @@
       </div>
 
       <!-- Stats Cards -->
-      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         <Card>
           <CardHeader
-            class="flex flex-row items-center justify-between space-y-0 pb-2"
+            class="flex flex-row items-center justify-between space-y-0"
           >
             <CardTitle class="text-sm font-medium">Total Products</CardTitle>
             <Package />
@@ -54,7 +68,7 @@
 
         <Card>
           <CardHeader
-            class="flex flex-row items-center justify-between space-y-0 pb-2"
+            class="flex flex-row items-center justify-between space-y-0"
           >
             <CardTitle class="text-sm font-medium">Active Products</CardTitle>
             <ShoppingCart />
@@ -72,15 +86,17 @@
 
         <Card>
           <CardHeader
-            class="flex flex-row items-center justify-between space-y-0 pb-2"
+            class="flex flex-row items-center justify-between space-y-0"
           >
             <CardTitle class="text-sm font-medium">Low Stock Items</CardTitle>
             <AlertTriangle />
           </CardHeader>
           <CardContent>
-            <div class="text-xl font-bold">{{ stats.lowStockItems }}</div>
+            <div class="text-xl font-bold text-orange-600">
+              {{ stats.lowStockItems }}
+            </div>
             <p class="text-xs text-muted-foreground">
-              <span class="text-red-600">+{{ stats.lowStockGrowth }}</span>
+              <span class="text-red-600">{{ stats.lowStockGrowth }}</span>
               requires attention
             </p>
           </CardContent>
@@ -88,17 +104,17 @@
 
         <Card>
           <CardHeader
-            class="flex flex-row items-center justify-between space-y-0 pb-2"
+            class="flex flex-row items-center justify-between space-y-0"
           >
-            <CardTitle class="text-sm font-medium">Total Revenue</CardTitle>
+            <CardTitle class="text-sm font-medium">Total Value</CardTitle>
             <DollarSign />
           </CardHeader>
           <CardContent>
-            <div class="text-xl font-bold">
-              Rp {{ formatCurrency(stats.totalRevenue) }}
+            <div class="text-xl font-bold text-green-600">
+              Rp {{ formatCurrency(stats.totalValue) }}
             </div>
             <p class="text-xs text-muted-foreground">
-              <span class="text-green-600">+{{ stats.revenueGrowth }}%</span>
+              <span class="text-green-600">+{{ stats.valueGrowth }}%</span>
               from last month
             </p>
           </CardContent>
@@ -111,7 +127,7 @@
         <Card class="md:col-span-2">
           <CardHeader>
             <CardTitle>Overview</CardTitle>
-            <CardDescription>Grafik penjualan bulanan</CardDescription>
+            <CardDescription>Monthly product sales trend</CardDescription>
           </CardHeader>
           <CardContent>
             <div class="h-80">
@@ -325,7 +341,7 @@
                     <TableCell>
                       <span class="font-medium">{{ alert.stock }}</span>
                     </TableCell>
-                    <TableCell>{{ alert.minLevel }}</TableCell>
+                    <TableCell>{{ alert.minLevel || 5 }}</TableCell>
                     <TableCell>
                       <Badge
                         :variant="
@@ -369,40 +385,20 @@
               />
               <p class="text-muted-foreground">No inventory alerts found</p>
             </div>
-
-            <!-- Pagination -->
-            <div
-              class="flex items-center justify-between"
-              v-if="filteredAlerts.length > 0"
-            >
-              <p class="text-sm text-muted-foreground">
-                Showing {{ filteredAlerts.length }} of
-                {{ inventoryAlerts.length }} alerts
-              </p>
-              <div class="flex items-center gap-2">
-                <Button variant="outline" size="sm" disabled>
-                  <ChevronLeft class="h-4 w-4" />
-                  Previous
-                </Button>
-                <Button variant="outline" size="sm" disabled>
-                  Next
-                  <ChevronRight class="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
           </div>
         </CardContent>
       </Card>
     </div>
+
     <!-- Restock Modal -->
-    <AlertDialog v-model:open="restockModalOpen">
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>Restock Product</AlertDialogTitle>
-          <AlertDialogDescription>
+    <Dialog v-model:open="restockModalOpen">
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Restock Product</DialogTitle>
+          <DialogDescription>
             Add stock to {{ selectedProduct?.title }}
-          </AlertDialogDescription>
-        </AlertDialogHeader>
+          </DialogDescription>
+        </DialogHeader>
         <div v-if="selectedProduct" class="space-y-4">
           <div class="grid grid-cols-2 gap-4">
             <div>
@@ -447,14 +443,15 @@
             </p>
           </div>
         </div>
-        <AlertDialogFooter>
-          <AlertDialogCancel
+        <DialogFooter>
+          <Button
+            variant="outline"
             @click="closeRestockModal"
             :disabled="restockLoading"
           >
             Cancel
-          </AlertDialogCancel>
-          <AlertDialogAction
+          </Button>
+          <Button
             @click="handleRestock"
             :disabled="
               restockLoading ||
@@ -464,20 +461,18 @@
           >
             <Loader2 v-if="restockLoading" class="h-4 w-4 mr-2 animate-spin" />
             Restock
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
 
     <!-- Edit Modal -->
-    <AlertDialog v-model:open="editModalOpen">
-      <AlertDialogContent class="max-w-2xl">
-        <AlertDialogHeader>
-          <AlertDialogTitle>Edit Product</AlertDialogTitle>
-          <AlertDialogDescription>
-            Update product information
-          </AlertDialogDescription>
-        </AlertDialogHeader>
+    <Dialog v-model:open="editModalOpen">
+      <DialogContent class="max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>Edit Product</DialogTitle>
+          <DialogDescription> Update product information </DialogDescription>
+        </DialogHeader>
         <div v-if="selectedProduct" class="space-y-4">
           <div class="grid grid-cols-2 gap-4">
             <div>
@@ -559,20 +554,24 @@
             />
           </div>
         </div>
-        <AlertDialogFooter>
-          <AlertDialogCancel @click="closeEditModal" :disabled="editLoading">
+        <DialogFooter>
+          <Button
+            variant="outline"
+            @click="closeEditModal"
+            :disabled="editLoading"
+          >
             Cancel
-          </AlertDialogCancel>
-          <AlertDialogAction
+          </Button>
+          <Button
             @click="handleEdit"
             :disabled="editLoading || !editForm.title || !editForm.category"
           >
             <Loader2 v-if="editLoading" class="h-4 w-4 mr-2 animate-spin" />
             Save Changes
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   </div>
 </template>
 
@@ -580,6 +579,9 @@
 import { ref, computed, onMounted, watch } from "vue";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
   Card,
   CardContent,
@@ -604,6 +606,14 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import {
   Package,
   AlertTriangle,
   DollarSign,
@@ -626,9 +636,6 @@ import {
   getDocs,
   query,
   orderBy,
-  onSnapshot,
-  limit,
-  where,
   doc,
   updateDoc,
 } from "firebase/firestore";
@@ -643,12 +650,15 @@ const { $firebase } = useNuxtApp();
 const loading = ref(true);
 const searchQuery = ref("");
 const selectedAlertFilter = ref("all");
-const selectedStatusFilter = ref("all");
+const message = ref("");
+const messageType = ref("");
 
 // Modal states
 const restockModalOpen = ref(false);
 const editModalOpen = ref(false);
 const selectedProduct = ref(null);
+const restockLoading = ref(false);
+const editLoading = ref(false);
 
 // Form data for modals
 const restockForm = ref({
@@ -678,8 +688,8 @@ const stats = ref({
   activeProductsGrowth: 0,
   lowStockItems: 0,
   lowStockGrowth: 0,
-  totalRevenue: 0,
-  revenueGrowth: 0,
+  totalValue: 0,
+  valueGrowth: 0,
 });
 
 // Chart data
@@ -713,7 +723,7 @@ const topProducts = ref([]);
 // Computed properties
 const inventoryAlerts = computed(() => {
   return allProducts.value.filter(
-    (product) => product.stock <= product.minLevel || product.stock === 0
+    (product) => product.stock <= (product.minLevel || 5) || product.stock === 0
   );
 });
 
@@ -737,23 +747,9 @@ const filteredAlerts = computed(() => {
       filtered = filtered.filter((alert) => alert.stock === 0);
     } else if (selectedAlertFilter.value === "low") {
       filtered = filtered.filter(
-        (alert) => alert.stock > 0 && alert.stock <= alert.minLevel
+        (alert) => alert.stock > 0 && alert.stock <= (alert.minLevel || 5)
       );
     }
-  }
-
-  return filtered;
-});
-
-// Filtered products by status
-const filteredProducts = computed(() => {
-  let filtered = allProducts.value;
-
-  // Filter by status
-  if (selectedStatusFilter.value !== "all") {
-    filtered = filtered.filter(
-      (product) => product.statusProduct === selectedStatusFilter.value
-    );
   }
 
   return filtered;
@@ -775,6 +771,7 @@ const fetchCategories = async () => {
     }));
   } catch (error) {
     console.error("Error fetching categories:", error);
+    showMessage("Failed to load categories", "error");
   }
 };
 
@@ -796,8 +793,11 @@ const fetchProducts = async () => {
     generateChartData();
     fetchTopProducts();
     generateRecentActivities();
+
+    showMessage("Data refreshed successfully!", "success");
   } catch (error) {
     console.error("Error fetching products:", error);
+    showMessage("Failed to load products", "error");
   } finally {
     loading.value = false;
   }
@@ -809,22 +809,22 @@ const calculateStats = () => {
     (p) => p.statusProduct === "active"
   ).length;
   const lowStock = allProducts.value.filter(
-    (p) => p.stock <= p.minLevel
+    (p) => p.stock <= (p.minLevel || 5)
   ).length;
-  const totalRevenue = allProducts.value.reduce(
-    (sum, p) => sum + p.price * p.stock,
+  const totalValue = allProducts.value.reduce(
+    (sum, p) => sum + (p.price || 0) * (p.stock || 0),
     0
   );
 
   stats.value = {
     totalProducts: total,
-    totalProductsGrowth: Math.floor(Math.random() * 20) + 5, // Simulated growth
+    totalProductsGrowth: Math.floor(Math.random() * 20) + 5,
     activeProducts: active,
     activeProductsGrowth: Math.floor(Math.random() * 15) + 3,
     lowStockItems: lowStock,
-    lowStockGrowth: Math.floor(Math.random() * 10) + 1,
-    totalRevenue: totalRevenue,
-    revenueGrowth: Math.floor(Math.random() * 25) + 10,
+    lowStockGrowth: lowStock,
+    totalValue: totalValue,
+    valueGrowth: Math.floor(Math.random() * 25) + 10,
   };
 };
 
@@ -860,7 +860,7 @@ const generateChartData = () => {
   // Generate sample monthly data based on current products
   const monthlyData = Array.from({ length: 12 }, (_, i) => {
     const baseValue = Math.floor(Math.random() * 5000) + 1000;
-    const seasonalMultiplier = i >= 10 || i <= 1 ? 1.5 : 1; // Higher in Nov-Feb
+    const seasonalMultiplier = i >= 10 || i <= 1 ? 1.5 : 1;
     return Math.floor(baseValue * seasonalMultiplier);
   });
 
@@ -881,20 +881,22 @@ const generateChartData = () => {
     ],
     datasets: [
       {
+        label: "Sales",
         data: monthlyData,
         backgroundColor: "#FF4F0F",
-        borderRadius: 4,
-        borderSkipped: false,
+        borderColor: "#FF4F0F",
+        borderWidth: 2,
+        fill: false,
+        tension: 0.4,
       },
     ],
   };
 };
 
 const fetchTopProducts = () => {
-  // Get top 4 products by price
   topProducts.value = allProducts.value
     .filter((p) => p.statusProduct === "active")
-    .sort((a, b) => b.price - a.price)
+    .sort((a, b) => (b.price || 0) - (a.price || 0))
     .slice(0, 4);
 };
 
@@ -902,14 +904,12 @@ const generateRecentActivities = () => {
   const activities = [];
   const now = new Date();
 
-  // Generate activities based on recent products
   const recentProducts = allProducts.value
-    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+    .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0))
     .slice(0, 4);
 
   recentProducts.forEach((product, index) => {
-    const createdAt = new Date(product.createdAt);
-    const timeDiff = now - createdAt;
+    const createdAt = new Date(product.createdAt || now);
 
     activities.push({
       id: index + 1,
@@ -934,7 +934,7 @@ const getCategoryName = (categoryId) => {
 };
 
 const formatCurrency = (amount) => {
-  return new Intl.NumberFormat("id-ID").format(amount);
+  return new Intl.NumberFormat("id-ID").format(amount || 0);
 };
 
 const formatTimeAgo = (date) => {
@@ -954,6 +954,15 @@ const handleImageError = (event) => {
   event.target.src = "/placeholder-product.jpg";
 };
 
+const showMessage = (msg, type) => {
+  message.value = msg;
+  messageType.value = type;
+  setTimeout(() => {
+    message.value = "";
+    messageType.value = "";
+  }, 5000);
+};
+
 // Action functions
 const refreshData = async () => {
   await fetchProducts();
@@ -961,37 +970,77 @@ const refreshData = async () => {
 };
 
 const navigateToAddProduct = () => {
-  navigateTo("/products/addProduct");
+  navigateTo("/admin/products/addProduct");
 };
 
-const exportData = () => {
-  const csvContent =
-    "data:text/csv;charset=utf-8," +
-    "ID,Title,Category,Price,Stock,Status\n" +
-    allProducts.value
-      .map(
-        (p) =>
-          `${p.id},"${p.title}","${getCategoryName(p.category)}",${p.price},${
-            p.stock
-          },${p.statusProduct}`
-      )
-      .join("\n");
+const exportData = async () => {
+  try {
+    if (allProducts.value.length === 0) {
+      showMessage("No data to export", "error");
+      return;
+    }
 
-  const encodedUri = encodeURI(csvContent);
-  const link = document.createElement("a");
-  link.setAttribute("href", encodedUri);
-  link.setAttribute("download", "products_export.csv");
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
+    // Prepare CSV data
+    const headers = [
+      "Product ID",
+      "Title",
+      "Category",
+      "Price",
+      "Stock",
+      "Min Level",
+      "Status",
+      "Description",
+      "Created At",
+    ];
+
+    const csvData = allProducts.value.map((product) => [
+      product.id || "",
+      `"${(product.title || "").replace(/"/g, '""')}"`,
+      `"${getCategoryName(product.category)}"`,
+      product.price || 0,
+      product.stock || 0,
+      product.minLevel || 5,
+      product.statusProduct || "active",
+      `"${(product.description || "").replace(/"/g, '""')}"`,
+      product.createdAt || "",
+    ]);
+
+    // Create CSV content
+    const csvContent = [
+      headers.join(","),
+      ...csvData.map((row) => row.join(",")),
+    ].join("\n");
+
+    // Create and download file
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
+    const url = URL.createObjectURL(blob);
+
+    link.setAttribute("href", url);
+    link.setAttribute(
+      "download",
+      `products_export_${new Date().toISOString().split("T")[0]}.csv`
+    );
+    link.style.visibility = "hidden";
+
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    URL.revokeObjectURL(url);
+    showMessage("Products exported successfully!", "success");
+  } catch (error) {
+    console.error("Export error:", error);
+    showMessage("Failed to export data", "error");
+  }
 };
 
 const viewAllActivities = () => {
-  navigateTo("/products/inventory");
+  navigateTo("/admin/products/inventory");
 };
 
 const viewAllProducts = () => {
-  navigateTo("/products/listProducts");
+  navigateTo("/admin/products/listProducts");
 };
 
 // Modal functions
@@ -1010,7 +1059,7 @@ const openEditModal = (product) => {
     title: product.title || "",
     price: product.price || 0,
     stock: product.stock || 0,
-    minLevel: product.minLevel || 0,
+    minLevel: product.minLevel || 5,
     category: product.category || "",
     statusProduct: product.statusProduct || "active",
     description: product.description || "",
@@ -1044,10 +1093,11 @@ const closeEditModal = () => {
 const handleRestock = async () => {
   try {
     if (!selectedProduct.value || restockForm.value.quantity <= 0) {
-      alert("Please enter a valid quantity");
+      showMessage("Please enter a valid quantity", "error");
       return;
     }
 
+    restockLoading.value = true;
     const productRef = doc(
       $firebase.firestore,
       "products",
@@ -1060,6 +1110,7 @@ const handleRestock = async () => {
       stock: newStock,
       lastRestocked: new Date().toISOString(),
       restockReason: restockForm.value.reason || "Manual restock",
+      updatedAt: new Date().toISOString(),
     });
 
     // Update local data
@@ -1070,11 +1121,14 @@ const handleRestock = async () => {
       allProducts.value[productIndex].stock = newStock;
     }
 
-    alert("Product restocked successfully!");
+    showMessage("Product restocked successfully!", "success");
     closeRestockModal();
+    calculateStats();
   } catch (error) {
     console.error("Error restocking product:", error);
-    alert("Failed to restock product. Please try again.");
+    showMessage("Failed to restock product. Please try again.", "error");
+  } finally {
+    restockLoading.value = false;
   }
 };
 
@@ -1082,6 +1136,7 @@ const handleEdit = async () => {
   try {
     if (!selectedProduct.value) return;
 
+    editLoading.value = true;
     const productRef = doc(
       $firebase.firestore,
       "products",
@@ -1113,11 +1168,16 @@ const handleEdit = async () => {
       };
     }
 
-    alert("Product updated successfully!");
+    showMessage("Product updated successfully!", "success");
     closeEditModal();
+    calculateStats();
+    calculateTopCategories();
+    fetchTopProducts();
   } catch (error) {
     console.error("Error updating product:", error);
-    alert("Failed to update product. Please try again.");
+    showMessage("Failed to update product. Please try again.", "error");
+  } finally {
+    editLoading.value = false;
   }
 };
 
@@ -1127,7 +1187,7 @@ onMounted(async () => {
   await fetchProducts();
 });
 
-// Watch for real-time updates
+// Watch for changes
 watch(
   allProducts,
   () => {
