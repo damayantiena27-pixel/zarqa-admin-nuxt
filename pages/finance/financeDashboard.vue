@@ -270,8 +270,9 @@
           <CardDescription>Monthly comparison</CardDescription>
         </CardHeader>
         <CardContent>
-          <div class="h-80">
+          <div class="">
             <OverviewChart :data="chartData" />
+            <OverviewChartLine :chart-data="chartData" />
           </div>
         </CardContent>
       </Card>
@@ -454,7 +455,7 @@ import {
 } from "lucide-vue-next";
 import HeadersContent from "~/components/ui/HeadersContent.vue";
 import { collection, getDocs, query, where, orderBy } from "firebase/firestore";
-import OverviewChart from "@/components/chart/OverviewChartLine.vue";
+import OverviewChartLine from "@/components/chart/OverviewChartLine.vue";
 
 definePageMeta({
   middleware: "auth",
@@ -807,6 +808,7 @@ const generateChartData = (transactions) => {
   }
 
   // Update chart data
+  // Update chart data - Fixed format for OverviewChartLine
   chartData.value = {
     labels,
     datasets: [
@@ -815,12 +817,34 @@ const generateChartData = (transactions) => {
         data: incomeData,
         backgroundColor: "#22c55e",
         borderColor: "#22c55e",
+        data: incomeData,
+        borderColor: "#22c55e",
+        backgroundColor: "rgba(34, 197, 94, 0.1)",
+        borderWidth: 3,
+        fill: true,
+        tension: 0.4,
+        pointBackgroundColor: "#22c55e",
+        pointBorderColor: "#ffffff",
+        pointBorderWidth: 2,
+        pointRadius: 6,
+        pointHoverRadius: 8,
       },
       {
         label: "Expenses",
         data: expenseData,
         backgroundColor: "#ef4444",
         borderColor: "#ef4444",
+        data: expenseData,
+        borderColor: "#ef4444",
+        backgroundColor: "rgba(239, 68, 68, 0.1)",
+        borderWidth: 3,
+        fill: true,
+        tension: 0.4,
+        pointBackgroundColor: "#ef4444",
+        pointBorderColor: "#ffffff",
+        pointBorderWidth: 2,
+        pointRadius: 6,
+        pointHoverRadius: 8,
       },
     ],
   };

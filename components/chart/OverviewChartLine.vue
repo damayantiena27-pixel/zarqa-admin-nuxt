@@ -1,5 +1,5 @@
 <template>
-  <div class="w-full h-full">
+  <div class="w-full h-64">
     <canvas ref="chartCanvas"></canvas>
   </div>
 </template>
@@ -12,7 +12,7 @@ import { Chart, registerables } from "chart.js";
 Chart.register(...registerables);
 
 const props = defineProps({
-  data: {
+  chartData: {
     type: Object,
     required: true,
   },
@@ -34,37 +34,8 @@ const createChart = () => {
   chartInstance = new Chart(ctx, {
     type: "line",
     data: {
-      labels: props.data.labels || [],
-      datasets: [
-        {
-          label: "Income",
-          data: props.data.datasets?.[0]?.data || [],
-          borderColor: "#22c55e",
-          backgroundColor: "rgba(34, 197, 94, 0.1)",
-          borderWidth: 3,
-          fill: true,
-          tension: 0.4,
-          pointBackgroundColor: "#22c55e",
-          pointBorderColor: "#ffffff",
-          pointBorderWidth: 2,
-          pointRadius: 6,
-          pointHoverRadius: 8,
-        },
-        {
-          label: "Expenses",
-          data: props.data.datasets?.[1]?.data || [],
-          borderColor: "#ef4444",
-          backgroundColor: "rgba(239, 68, 68, 0.1)",
-          borderWidth: 3,
-          fill: true,
-          tension: 0.4,
-          pointBackgroundColor: "#ef4444",
-          pointBorderColor: "#ffffff",
-          pointBorderWidth: 2,
-          pointRadius: 6,
-          pointHoverRadius: 8,
-        },
-      ],
+      labels: props.chartData.labels || [],
+      datasets: props.chartData.datasets || [],
     },
     options: {
       responsive: true,
@@ -75,16 +46,7 @@ const createChart = () => {
       },
       plugins: {
         legend: {
-          display: true,
-          position: "top",
-          labels: {
-            usePointStyle: true,
-            padding: 20,
-            font: {
-              size: 12,
-              weight: "500",
-            },
-          },
+          display: false,
         },
         tooltip: {
           backgroundColor: "rgba(0, 0, 0, 0.8)",
@@ -142,7 +104,13 @@ const createChart = () => {
       },
       elements: {
         point: {
+          radius: 4,
+          hoverRadius: 6,
+          borderWidth: 2,
           hoverBorderWidth: 3,
+        },
+        line: {
+          tension: 0.4,
         },
       },
     },
@@ -154,7 +122,7 @@ onMounted(() => {
 });
 
 watch(
-  () => props.data,
+  () => props.chartData,
   () => {
     createChart();
   },
