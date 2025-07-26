@@ -84,7 +84,16 @@ const createChart = () => {
               size: 11,
             },
             color: "#6b7280",
+            callback: function (value) {
+              return new Intl.NumberFormat("id-ID").format(value);
+            },
           },
+        },
+      },
+      elements: {
+        bar: {
+          borderRadius: 4,
+          borderSkipped: false,
         },
       },
     },

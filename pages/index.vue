@@ -20,9 +20,10 @@ import {
   BanknoteArrowUp,
 } from "lucide-vue-next";
 import OverviewChart from "@/components/chart/OverviewChart.vue";
+import OverviewChartLine from "@/components/chart/OverviewChartLine.vue";
 
 // Data untuk chart
-const chartData = {
+const chartData = ref({
   labels: [
     "Jan",
     "Feb",
@@ -39,15 +40,17 @@ const chartData = {
   ],
   datasets: [
     {
-      data: [
-        5500, 4000, 2000, 2400, 3900, 1900, 3100, 2300, 4400, 3600, 5400, 4500,
-      ],
+      label: "Pemasukan",
+      data: Array.from(
+        { length: 12 },
+        () => Math.floor(Math.random() * 1000) + 500
+      ),
       backgroundColor: "#FF4F0F",
       borderRadius: 4,
       borderSkipped: false,
     },
   ],
-};
+});
 </script>
 
 <template>
@@ -149,7 +152,7 @@ const chartData = {
               </CardHeader>
               <CardContent>
                 <div class="h-80">
-                  <OverviewChart :data="chartData" />
+                  <OverviewChart :chart-data="chartData" />
                 </div>
               </CardContent>
             </Card>

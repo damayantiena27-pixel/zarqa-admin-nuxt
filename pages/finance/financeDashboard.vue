@@ -271,7 +271,6 @@
         </CardHeader>
         <CardContent>
           <div class="">
-            <OverviewChart :data="chartData" />
             <OverviewChartLine :chart-data="chartData" />
           </div>
         </CardContent>
@@ -455,6 +454,7 @@ import {
 } from "lucide-vue-next";
 import HeadersContent from "~/components/ui/HeadersContent.vue";
 import { collection, getDocs, query, where, orderBy } from "firebase/firestore";
+import OverviewChart from "@/components/chart/OverviewChart.vue";
 import OverviewChartLine from "@/components/chart/OverviewChartLine.vue";
 
 definePageMeta({

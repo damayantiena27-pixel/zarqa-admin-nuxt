@@ -132,7 +132,7 @@
           <CardContent>
             <div class="h-80">
               <OverviewChart
-                :data="chartData"
+                :chart-data="chartData"
                 v-if="chartData.datasets.length > 0"
               />
               <div
@@ -708,7 +708,17 @@ const chartData = ref({
     "Nov",
     "Dec",
   ],
-  datasets: [],
+  datasets: [
+    {
+      label: "Sales",
+      data: [],
+      backgroundColor: "#FF4F0F",
+      borderColor: "#FF4F0F",
+      borderWidth: 2,
+      fill: false,
+      tension: 0.4,
+    },
+  ],
 });
 
 // Top categories
