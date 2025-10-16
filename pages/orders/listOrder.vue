@@ -909,9 +909,9 @@ const saveOrderChanges = async () => {
   }
 };
 
-const editOrderOld = (id) => {
-  console.log("Edit order:", id);
-  navigateTo(`/orders/editOrder/${id}`);
+const navigateToEditOrder = (id) => {
+  console.log("Navigate to edit order:", id);
+  navigateTo(`/orders/editOrder?id=${id}`);
 };
 
 const deleteOrder = async (id) => {

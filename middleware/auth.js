@@ -1,12 +1,26 @@
-export default defineNuxtRouteMiddleware((to) => {
+export default defineNuxtRouteMiddleware(async (to) => {
   const { user, loading, initialized } = useAuth();
 
-  // Tunggu auth state initialized
+  // Wait for auth initialization to complete
   if (!initialized.value || loading.value) {
-    return; // Biarkan loading state handle ini
+    // Use a promise-based approach to wait for initialization
+    await new Promise((resolve) => {
+      const checkInterval = setInterval(() => {
+        if (initialized.value && !loading.value) {
+          clearInterval(checkInterval);
+          resolve();
+        }
+      }, 50);
+
+      // Timeout after 5 seconds to prevent infinite loop
+      setTimeout(() => {
+        clearInterval(checkInterval);
+        resolve();
+      }, 5000);
+    });
   }
 
-  // Jika user tidak ada, redirect ke login
+  // After initialization, check if user exists
   if (!user.value) {
     return navigateTo("/login");
   }
