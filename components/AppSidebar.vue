@@ -8,6 +8,7 @@ import {
   Package2,
   Users,
   ShoppingBasket,
+  Shirt
 } from "lucide-vue-next";
 
 import NavMain from "@/components/NavMain.vue";
@@ -77,10 +78,6 @@ const data = {
           title: "History Order",
           url: "/orders/historyOrder",
         },
-        {
-          title: "Queue Order",
-          url: "/orders/queueOrderProcess",
-        },
       ],
     },
     {
@@ -96,10 +93,6 @@ const data = {
         {
           title: "Add Customer",
           url: "/customers/addCustomer",
-        },
-        {
-          title: "Customer Information",
-          url: "/customers/customerInformation",
         },
       ],
     },
@@ -164,10 +157,10 @@ const data = {
               <div
                 class="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground"
               >
-                <Command class="size-4" />
+                <Shirt class="size-4" />
               </div>
               <div class="grid flex-1 text-left text-sm leading-tight">
-                <span class="truncate font-medium">Toko Kue Dlillah</span>
+                <span class="truncate font-medium">ZARQA</span>
                 <span class="truncate text-xs">Enterprise</span>
               </div>
             </NuxtLink>

@@ -197,7 +197,7 @@
         </Card>
 
         <!-- Preferences & Settings -->
-        <Card>
+        <Card v-if="showCardPreferences">
           <CardHeader>
             <CardTitle class="flex items-center">
               <Settings class="mr-2 h-5 w-5" />
@@ -467,6 +467,9 @@ definePageMeta({
 
 // Mendapatkan variabel dari runtime config environment
 const runtimeConfig = useRuntimeConfig();
+
+// Vif show card settings & preferences
+const showCardPreferences = ref(false);
 
 // State
 const isSubmitting = ref(false);

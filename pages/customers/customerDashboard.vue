@@ -133,30 +133,6 @@
           </p>
         </CardContent>
       </Card>
-      <!-- <Card>
-        <CardContent class="p-6">
-          <div class="flex items-center justify-between">
-            <div>
-              <p class="text-sm font-medium text-muted-foreground">Avg CLV</p>
-              <p class="text-3xl font-bold">
-                Rp {{ formatPrice(metrics.avgCLV) }}
-              </p>
-              <p class="text-xs text-muted-foreground mt-1">
-                <span
-                  :class="
-                    metrics.clvGrowth >= 0 ? 'text-green-600' : 'text-red-600'
-                  "
-                >
-                  {{ metrics.clvGrowth >= 0 ? "+" : ""
-                  }}{{ metrics.clvGrowth }}%
-                </span>
-                vs last period
-              </p>
-            </div>
-            <TrendingUp class="h-8 w-8 text-purple-500" />
-          </div>
-        </CardContent>
-      </Card> -->
     </div>
 
     <!-- Customer Segmentation & Activity -->
@@ -624,7 +600,7 @@ const recentActivity = ref([
     id: "A001",
     customer: "Siti Aminah",
     type: "order",
-    description: "Placed a new order for Wedding Cake 3 Tier",
+    description: "Placed a new order for Abaya One Set",
     timestamp: "2024-01-17T10:30:00Z",
   },
   {
@@ -645,7 +621,7 @@ const recentActivity = ref([
     id: "A004",
     customer: "Ahmad Rizki",
     type: "review",
-    description: "Left a 5-star review for Birthday Cake",
+    description: "Left a 5-star review for Gamis Tunik",
     timestamp: "2024-01-16T14:20:00Z",
   },
 ]);

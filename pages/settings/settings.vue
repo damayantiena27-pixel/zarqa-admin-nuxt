@@ -952,16 +952,16 @@ const settingSections = [
 
 // User profile data
 const userProfile = reactive({
-  firstName: "Ahmad",
-  lastName: "Rizki",
-  email: "ahmad@dlillah.com",
+  firstName: "Damayanti",
+  lastName: "Nur Aisyah",
+  email: "admin@gmail.com",
   phone: "+62 812-3456-7890",
   timezone: "Asia/Jakarta",
   language: "id",
-  businessName: "Dlillah Cake Shop",
-  businessType: "bakery",
+  businessName: "Zarqa",
+  businessType: "fashion",
   businessPhone: "+62 21-1234-5678",
-  businessAddress: "Jl. Raya Bogor No. 123, Jakarta Timur, DKI Jakarta 13750",
+  businessAddress: "Jl. Babakan Cijeruk, Ciwidey, Bandung, Jawa Barat",
   plan: "Professional",
   planStatus: "Active",
   role: "Owner",
@@ -972,11 +972,11 @@ const userProfile = reactive({
 // Settings data
 const settings = reactive({
   general: {
-    businessName: "Dlillah Cake Shop",
-    businessType: "bakery",
-    businessEmail: "admin@dlillah.com",
+    businessName: "Zarqa",
+    businessType: "fashion",
+    businessEmail: "admin@gmail.com",
     businessPhone: "+62 21-1234-5678",
-    businessAddress: "Jl. Raya Bogor No. 123, Jakarta Timur, DKI Jakarta 13750",
+    businessAddress: "Jl. Babakan Cijeruk, Ciwidey, Bandung, Jawa Barat",
     timezone: "Asia/Jakarta",
     currency: "IDR",
     language: "id",
@@ -1025,14 +1025,14 @@ const activeSessions = ref([
   {
     id: "1",
     device: "Chrome on Windows",
-    location: "Jakarta, Indonesia",
+    location: "Ciwidey, Indonesia",
     lastActive: "Active now",
     current: true,
   },
   {
     id: "2",
     device: "Safari on iPhone",
-    location: "Jakarta, Indonesia",
+    location: "Ciwidey, Indonesia",
     lastActive: "2 hours ago",
     current: false,
   },
